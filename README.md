@@ -1,158 +1,178 @@
 # buy-01
 
-`buy-01` is a small e-commerce platform built as a microservices project. It includes:
+`buy-01` is a microservices e-commerce project. It contains an Angular frontend, a Spring Cloud Gateway, Eureka service discovery, Spring Boot services for users/products/media, MongoDB databases, Kafka event flow, MinIO media storage, and Jenkins pipeline support.
 
-- An Angular frontend for browsing products and managing seller workflows
-- A Spring Cloud Gateway entrypoint for API traffic
-- A Eureka server for service discovery
-- Separate Spring Boot services for users, products, and media
-- MongoDB for service data
-- MinIO for image storage
-- Kafka for product/media event flow
+The app currently supports:
 
-The current app supports authentication, seller product management, product browsing, and media upload for product images and avatars.
+- user registration and login with JWT authentication
+- profile and public seller profile pages
+- product listing and product details
+- seller-only product management
+- image upload/update/delete for products and avatars
+- product/media cleanup events through Kafka
+
+## Project Structure
+
+- `frontend` - Angular 21 application served by Nginx in Docker
+- `gateway` - Spring Cloud Gateway, JWT validation, CORS, service routing
+- `eureka-server` - Eureka registry for service discovery
+- `user-service` - authentication, user profile, public user profile
+- `product-service` - product CRUD and seller ownership checks
+- `media-service` - image APIs, MinIO storage, orphan cleanup, Kafka consumer
+- `docker-compose.yml` - full application stack
+- `docker-compose.infra.yml` - Jenkins container stack
+- `Jenkinsfile` - CI/CD pipeline
+- `scripts/run-https.sh` - local HTTPS startup helper
+- `run-all.sh` - local Spring service runner backed by Docker infrastructure
 
 ## Architecture
 
-Services in this repository:
+The frontend talks to the gateway. Backend services register with Eureka, and the gateway routes requests to services by logical service name.
 
-- `frontend`
-  Angular application
-- `gateway`
-  Public API entrypoint, JWT validation, CORS, service routing
-- `eureka-server`
-  Service registry
-- `user-service`
-  Registration, login, profile, public seller profile
-- `product-service`
-  Product CRUD and seller ownership checks
-- `media-service`
-  Image upload, update, delete, MinIO integration
+```text
+Browser
+  -> Frontend
+  -> Gateway
+  -> USER-SERVICE / PRODUCT-SERVICE / MEDIA-SERVICE
+  -> MongoDB, Kafka, MinIO
+```
 
-Infrastructure used by Docker Compose:
+Docker Compose runs three separate MongoDB containers:
 
-- `mongodb_users`
-- `mongodb_products`
-- `mongodb_media`
-- `kafka`
-- `minio`
+- `mongodb_users` for `user-service`
+- `mongodb_products` for `product-service`
+- `mongodb_media` for `media-service`
 
-## Main Flow
+Other infrastructure:
 
-The frontend talks to the gateway, not directly to backend services.
-
-- Frontend -> Gateway
-- Gateway -> User/Product/Media services
-- Services register in Eureka
-- Media files are stored in MinIO
-- Product/media events are exchanged through Kafka
+- `kafka` for product/media events
+- `minio` for uploaded images
+- `traefik` for the HTTPS edge route
+- `eureka-server` for service discovery
 
 ## Prerequisites
 
-For the Docker HTTPS path:
+For the Docker path:
 
 - Docker
 - Docker Compose
-- `openssl`
+- OpenSSL
 
-Optional for a trusted local certificate:
+Optional:
 
-- `mkcert`
+- `mkcert` for trusted local HTTPS certificates
 
-For local non-Docker service development:
+For local service/frontend development:
 
 - Java 17
-- Maven wrapper support
 - Node.js 20+
 - npm
 
 ## Environment
 
-Copy the example file first:
+Create a local environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-Important values to review in `.env`:
+Important values to review:
 
 - `JWT_SECRET`
 - `MINIO_ROOT_USER`
 - `MINIO_ROOT_PASSWORD`
 - `MINIO_ACCESS_NAME`
 - `MINIO_ACCESS_SECRET`
+- `FRONTEND_API_BASE_URL`
+- `CORS_ALLOWED_ORIGINS`
 
-The repository includes HTTPS-related defaults for local development. The helper script will also patch the required HTTPS values into `.env` if needed.
+The HTTPS helper updates `CORS_ALLOWED_ORIGINS` and `FRONTEND_API_BASE_URL` to `https://localhost:8443`.
 
-## Run With Docker and HTTPS
+## Run the Full App With HTTPS
 
-The simplest way to run the whole stack is:
+Recommended local startup:
 
 ```bash
 ./scripts/run-https.sh
 ```
 
-This script:
-
-- creates `certs/localhost.pem`
-- creates `certs/localhost-key.pem`
-- uses `mkcert` when available, otherwise falls back to self-signed OpenSSL certs
-- prepares `.env`
-- runs `docker compose up --build`
-
-Useful options:
+Detached mode:
 
 ```bash
 ./scripts/run-https.sh -d
-./scripts/run-https.sh --force-certs
-./scripts/run-https.sh --help
 ```
+
+Regenerate certificates:
+
+```bash
+./scripts/run-https.sh --force-certs
+```
+
+The script:
+
+- creates local certificates in `certs/`
+- creates `.env` from `.env.example` if needed
+- writes local Traefik override files
+- creates the external Docker network `shared-net` if needed
+- runs `docker compose up --build`
 
 After startup:
 
 - App: `https://localhost:8443`
-- Gateway API: `https://localhost:8443/api`
+- Gateway API base: `https://localhost:8443/api`
 - Eureka: `http://localhost:8761`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
+- Direct frontend container port: `http://localhost:4200`
 
-If the script uses self-signed certificates, your browser will show a local security warning until you trust the cert.
+If OpenSSL generated a self-signed certificate, the browser will show a local certificate warning.
 
 ## Run With Docker Compose Directly
 
-If you want to manage startup yourself:
+Create the shared network first:
+
+```bash
+docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net
+```
+
+Then run:
 
 ```bash
 docker compose up --build
 ```
 
-For HTTPS to work in that mode, make sure:
+For the HTTPS route to use local certificates, prefer `./scripts/run-https.sh` because it generates `certs/`, `local-traefik-config.yml`, and `docker-compose.override.yml`.
 
-- `.env` contains `CORS_ALLOWED_ORIGINS=https://localhost:8443`
-- `.env` contains `FRONTEND_API_BASE_URL=https://localhost:8443`
-- `certs/localhost.pem` exists
-- `certs/localhost-key.pem` exists
+Stop the stack:
 
-The helper script is still the recommended path because it generates those files for you.
+```bash
+docker compose down
+```
 
-## Run Services Without Docker Images
+## Run Services From Local Source
 
-There is also a local service runner:
+`run-all.sh` starts Docker Compose and then launches the Spring services with their Maven wrappers:
 
 ```bash
 ./run-all.sh
 ```
 
-That script:
+Logs are written to `logs/`.
 
-- starts infrastructure with Docker Compose
-- starts the Spring Boot services with each service's Maven wrapper
+There are also helper scripts:
 
-This path is useful if you want backend code hot reload from local source, but it is separate from the HTTPS Docker frontend flow and is less polished.
+- `run-services.sh`
+- `rerun-services.sh`
+- `stop-services.sh`
+- `stop-all.sh`
+- `scripts/db/db-start.sh`
+- `scripts/db/db-stop.sh`
+- `scripts/kafka/kafka_init.sh`
+- `scripts/kafka/kafka_stop.sh`
 
 ## Frontend Development
 
-To run only the Angular app locally:
+Run the Angular app locally:
 
 ```bash
 cd frontend
@@ -160,37 +180,132 @@ npm install
 npm start
 ```
 
-The frontend is configured to talk to the gateway. If you are using the current HTTPS setup, the expected API base is:
+Run frontend tests:
 
-```text
-https://localhost:8443
+```bash
+cd frontend
+npm test
 ```
 
-## Common Ports
+Main frontend routes:
 
-- `8443` Traefik HTTPS entrypoint
-- `8000` Traefik HTTP entrypoint
-- `4200` frontend direct container port
-- `8080` gateway internal/direct port
-- `8081` user-service
-- `8082` product-service
-- `8083` media-service
-- `8761` eureka-server
-- `9000` minio api
-- `9001` minio console
-- `9092` kafka
+- `/products`
+- `/products/:id`
+- `/login`
+- `/register`
+- `/profile`
+- `/users/:id`
+- `/seller`
+
+## Backend Development
+
+Run all backend unit tests from the repository root:
+
+```bash
+./mvnw clean test
+```
+
+Build backend modules:
+
+```bash
+./mvnw package -DskipTests
+```
+
+Spring Boot modules are listed in the root `pom.xml`:
+
+- `user-service`
+- `product-service`
+- `media-service`
+- `gateway`
+- `eureka-server`
+
+## API Routes
+
+Gateway routes:
+
+- `/api/auth/**` -> `user-service`
+- `/api/users/**` -> `user-service`
+- `/api/products/**` -> `product-service`
+- `/api/media/**` -> `media-service`
+
+Current service endpoints include:
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/users/me`
+- `PUT /api/users/me`
+- `GET /api/users/public/{id}`
+- `GET /api/products`
+- `GET /api/products/{id}`
+- `POST /api/products`
+- `PUT /api/products/{id}`
+- `DELETE /api/products/{id}`
+- `POST /api/media/images`
+- `POST /api/media/images/profile`
+- `PUT /api/media/images/{id}`
+- `DELETE /api/media/images/{id}`
+
+OpenAPI docs are proxied through the gateway:
+
+- `/v3/api-docs/user-service`
+- `/v3/api-docs/product-service`
+- `/v3/api-docs/media-service`
+
+## Ports
+
+- `8443` - Traefik HTTPS entrypoint
+- `8000` - Traefik HTTP entrypoint mapped to container port `80`
+- `4200` - direct frontend container port
+- `8080` - gateway service port
+- `8081` - user service port
+- `8082` - product service port
+- `8083` - media service port
+- `8761` - Eureka
+- `9000` - MinIO API
+- `9001` - MinIO console
+- `9092` - Kafka inside Docker network
+- `8085` - Jenkins web UI from `docker-compose.infra.yml`
+- `50000` - Jenkins agent port
+
+## Jenkins
+
+The Jenkins image is built from the root `dockerfile` and started with:
+
+```bash
+docker compose -f docker-compose.infra.yml up --build -d
+```
+
+Jenkins is available at:
+
+```text
+http://localhost:8085
+```
+
+The pipeline in `Jenkinsfile` currently:
+
+- polls SCM every minute
+- runs backend tests with `./mvnw clean test`
+- runs frontend tests in a `node:20-alpine` Docker agent
+- packages backend modules with `./mvnw package -DskipTests`
+- deploys the Docker Compose stack
+- archives JUnit reports
+- sends success/failure email
+- attempts an authenticated `git revert HEAD` and push on failure
 
 ## Useful Files
 
-- [docker-compose.yml](/home/oamyay/Desktop/buy-01/docker-compose.yml)
-- [scripts/run-https.sh](/home/oamyay/Desktop/buy-01/scripts/run-https.sh)
-- [.env.example](/home/oamyay/Desktop/buy-01/.env.example)
-- [frontend/API_MAPPING.md](/home/oamyay/Desktop/buy-01/frontend/API_MAPPING.md)
+- [docker-compose.yml](/home/amazighi/Desktop/new/mr-jenk/docker-compose.yml)
+- [docker-compose.infra.yml](/home/amazighi/Desktop/new/mr-jenk/docker-compose.infra.yml)
+- [Jenkinsfile](/home/amazighi/Desktop/new/mr-jenk/Jenkinsfile)
+- [scripts/run-https.sh](/home/amazighi/Desktop/new/mr-jenk/scripts/run-https.sh)
+- [.env.example](/home/amazighi/Desktop/new/mr-jenk/.env.example)
+- [frontend/API_MAPPING.md](/home/amazighi/Desktop/new/mr-jenk/frontend/API_MAPPING.md)
 
 ## Troubleshooting
 
-- If the frontend cannot reach the backend, check that the gateway API is up on `https://localhost:8443/api`.
-- If Docker HTTPS startup fails, run `./scripts/run-https.sh --force-certs`.
-- If the browser warns about certificates, either trust the local cert or install `mkcert` and rerun the HTTPS script.
-- If uploads fail, check MinIO credentials in `.env`.
-- If service-to-service behavior looks wrong, check that Eureka, Kafka, and the three Mongo containers are healthy.
+- If `docker compose up` says `shared-net` is missing, run `docker network create shared-net` or use `./scripts/run-https.sh`.
+- If the frontend cannot reach the backend, check `https://localhost:8443/api` and `CORS_ALLOWED_ORIGINS`.
+- If the browser warns about certificates, install `mkcert` or accept the local self-signed certificate.
+- If uploads fail, check the MinIO credentials and bucket settings in `.env`.
+- If services do not appear in Eureka, check `http://localhost:8761` and the service logs.
+- If Kafka-related media cleanup does not run, check that the `kafka` container is healthy.

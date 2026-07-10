@@ -1,0 +1,21 @@
+services:
+  sonarqube:
+    image: sonarqube:latest
+    container_name: sonarqube
+    restart: unless-stopped
+    networks:
+      - shared-net
+    ports:
+      - "${SONARQUBE_PORT:-9000}:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+networks:
+  shared-net:
+    name: shared-net
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

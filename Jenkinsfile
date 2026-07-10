@@ -33,6 +33,32 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                // 'SonarCloud' or 'MySonarServer' must match the server name set in Jenkins System Config
+                withSonarQubeEnv('MySonarServer') {
+                    // The plugin automatically injects the token and server URL variables here!
+                    sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+  -Dsonar.projectKey=buy01 \
+  -Dsonar.projectName='buy01' '
+                }
+            }
+        }
+
+        stage('Quality Gate Enforcer') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    script {
+                        // This step listens precisely for the webhook call from your SonarQube container
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Pipeline aborted due to quality gate failure: ${qg.status}"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Deploy Stack') {
             steps {
                 echo 'Deploying the Microservices Platform...'
@@ -42,7 +68,7 @@ pipeline {
             }
         }
     }
-// df
+    // df
     post {
         always {
             echo 'Processing and archiving all test results...'

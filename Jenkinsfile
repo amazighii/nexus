@@ -5,6 +5,10 @@ pipeline {
         pollSCM('* * * * *')
     }
 
+    tools {
+        maven 'M3'
+    }
+
     stages {
         stage('Backend Unit Tests') {
             steps {

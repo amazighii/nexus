@@ -40,7 +40,7 @@ pipeline {
                     // The plugin automatically injects the token and server URL variables here!
                     sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
   -Dsonar.projectKey=buy01 \
-  -Dsonar.projectName='buy01' '
+  -Dsonar.projectName=buy01 '
                 }
             }
         }

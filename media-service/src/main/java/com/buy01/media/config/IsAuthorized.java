@@ -57,6 +57,8 @@ public class IsAuthorized extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    // test auto pipeline build via jenkins using github webhook
+
     private void writeError(HttpServletResponse response, int status, String error, String message) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json");

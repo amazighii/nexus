@@ -74,6 +74,10 @@ pipeline {
     }
     // df
     post {
+        statusChanged {
+            githubNotify context: 'Jenkins CI', status: 'PENDING'
+        }
+
         always {
             echo 'Processing and archiving all test results...'
 
@@ -85,12 +89,16 @@ pipeline {
         success {
             echo 'Deployment successful!'
 
+            githubNotify context: 'Jenkins CI', status: 'SUCCESS'
+
             mail to: 'justyoupika@gmail.com',
                  subject: "Pipeline Success: Job '${env.JOB_NAME}' [Build #${env.BUILD_NUMBER}]",
                  body: "Great news! The pipeline completed successfully.\n\nView the execution details here: ${env.BUILD_URL}"
         }
         failure {
             echo 'Build failed! Executing authenticated automated rollback...'
+
+            githubNotify context: 'Jenkins CI', status: 'FAILURE'
 
             mail to: 'justyoupika@gmail.com',
                  subject: "🛑 PIPELINE CRASHED: Job '${env.JOB_NAME}' [Build #${env.BUILD_NUMBER}]",

@@ -66,9 +66,15 @@ pipeline {
         stage('Deploy Stack') {
             steps {
                 echo 'Deploying the Microservices Platform...'
-                sh 'docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net'
-                sh 'docker compose down'
-                sh 'docker compose up --build -d'
+                script {
+                    def rawBranchName = env.CHANGE_BRANCH ? env.CHANGE_BRANCH : env.BRANCH_NAME
+
+                    def safeBranchName = rawBranchName.toLowerCase().replaceAll(/[^a-z0-9-_]/, '_')
+
+                    sh 'docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net'
+                    sh "docker compose -p ${safeBranchName} down"
+                    sh "docker compose -p ${safeBranchName} up --build -d"
+                }
             }
         }
     }
@@ -82,7 +88,7 @@ pipeline {
                   statusResultSource: [$class: 'DefaultStatusResultSource']])
 
             // This reads BOTH reports simultaneously
-            // testtt
+            // testtttt
             junit testResults: '**/target/surefire-reports/*.xml, **/frontend/junit-frontend.xml',
                   allowEmptyResults: true
         }

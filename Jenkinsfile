@@ -66,9 +66,12 @@ pipeline {
         stage('Deploy Stack') {
             steps {
                 echo 'Deploying the Microservices Platform...'
+
+                def safeBranchName = env.BRANCH_NAME.toLowerCase().replaceAll(/[^a-z0-9-_]/, '_')
+
                 sh 'docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net'
-                sh "docker compose -p ${env.BRANCH_NAME} down"
-                sh "docker compose -p ${env.BRANCH_NAME} up --build -d"
+                sh "docker compose -p ${safeBranchName} down"
+                sh "docker compose -p ${safeBranchName} up --build -d"
             }
         }
     }

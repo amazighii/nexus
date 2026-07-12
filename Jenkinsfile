@@ -67,8 +67,8 @@ pipeline {
             steps {
                 echo 'Deploying the Microservices Platform...'
                 sh 'docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net'
-                sh 'docker compose down'
-                sh 'docker compose up --build -d'
+                sh "docker compose -p ${env.BRANCH_NAME} down"
+                sh "docker compose -p ${env.BRANCH_NAME} up --build -d"
             }
         }
     }

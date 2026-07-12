@@ -1,6 +1,7 @@
 pipeline {
     agent any
 
+    // adding this comment to test auto delete of branches after merge
     triggers {
         pollSCM('')
         cron('H H(0-4) * * 1-5') // AutoMatically triggers a clean monitoring scan every weeknight between midnight and 4 AM

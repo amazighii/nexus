@@ -82,7 +82,7 @@ pipeline {
                   statusResultSource: [$class: 'DefaultStatusResultSource']])
 
             // This reads BOTH reports simultaneously
-            // testtt
+            // testtttt
             junit testResults: '**/target/surefire-reports/*.xml, **/frontend/junit-frontend.xml',
                   allowEmptyResults: true
         }

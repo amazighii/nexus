@@ -46,6 +46,11 @@ public class MediaService {
         ArrayList<ResponseAddMediaEntity> response = this.iterateOverFiles(files, sellerId, null, null);
 
         responseAddMediaEntityWrapper.setResponse(response);
+        try {
+            String productId = response.get(0).getId();
+        } catch (Exception e) {
+
+        }
 
         return responseAddMediaEntityWrapper;
 

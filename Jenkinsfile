@@ -3,6 +3,7 @@ pipeline {
 
     triggers {
         pollSCM('')
+        cron('H H(0-4) * * 1-5') // Automatically triggers a clean monitoring scan every weeknight between midnight and 4 AM
     }
 
     tools {
@@ -39,9 +40,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                // 'SonarCloud' or 'MySonarServer' must match the server name set in Jenkins System Config
                 withSonarQubeEnv('MySonarServer') {
-                    // The plugin automatically injects the token and server URL variables here!
                     sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
   -Dsonar.projectKey=buy01 \
   -Dsonar.projectName=buy01 '
@@ -53,7 +52,6 @@ pipeline {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
                     script {
-                        // This step listens precisely for the webhook call from your SonarQube container
                         def qg = waitForQualityGate()
                         if (qg.status != 'OK') {
                             error "Pipeline aborted due to quality gate failure: ${qg.status}"
@@ -72,13 +70,12 @@ pipeline {
                     def safeBranchName = rawBranchName.toLowerCase().replaceAll(/[^a-z0-9-_]/, '_')
 
                     sh 'docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net'
-                    sh "docker compose -p ${safeBranchName} down"
-                    sh "docker compose -p ${safeBranchName} up --build -d"
+                    sh 'docker compose -p buy01-current down --remove-orphans'
+                    sh 'docker compose -p buy01-current up --build -d'
                 }
             }
         }
     }
-    // df
     post {
         always {
             echo 'Processing and archiving all test results...'
@@ -87,8 +84,6 @@ pipeline {
                   contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'jenkins-ci'],
                   statusResultSource: [$class: 'DefaultStatusResultSource']])
 
-            // This reads BOTH reports simultaneously
-            // testtttt
             junit testResults: '**/target/surefire-reports/*.xml, **/frontend/junit-frontend.xml',
                   allowEmptyResults: true
         }

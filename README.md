@@ -1,6 +1,6 @@
-# buy-01
+# safe-zone
 
-`buy-01` is a microservices e-commerce project. It contains an Angular frontend, a Spring Cloud Gateway, Eureka service discovery, Spring Boot services for users/products/media, MongoDB databases, Kafka event flow, MinIO media storage, and Jenkins pipeline support.
+`safe-zone` is a microservices e-commerce project. It contains an Angular frontend, a Spring Cloud Gateway, Eureka service discovery, Spring Boot services for users/products/media, MongoDB databases, Kafka event flow, MinIO media storage, and Jenkins pipeline support.
 
 The app currently supports:
 
@@ -266,6 +266,7 @@ OpenAPI docs are proxied through the gateway:
 - `9092` - Kafka inside Docker network
 - `8085` - Jenkins web UI from `docker-compose.infra.yml`
 - `50000` - Jenkins agent port
+- `9002` - SonarQube web UI from `sonar-infra/docker-compose.yaml`
 
 ## Jenkins
 
@@ -281,12 +282,30 @@ Jenkins is available at:
 http://localhost:8085
 ```
 
+## SonarQube
+
+SonarQube is started from the `sonar-infra` Docker Compose file:
+
+```bash
+docker compose -f sonar-infra/docker-compose.yaml up -d
+```
+
+SonarQube is available at:
+
+```text
+http://localhost:9002
+```
+
+The host port can be changed with `SONARQUBE_PORT`; the container always listens on port `9000`.
+
 The pipeline in `Jenkinsfile` currently:
 
 - polls SCM every minute
 - runs backend tests with `./mvnw clean test`
 - runs frontend tests in a `node:20-alpine` Docker agent
 - packages backend modules with `./mvnw package -DskipTests`
+- runs SonarQube analysis through the configured Jenkins server `MySonarServer`
+- enforces the SonarQube quality gate and aborts the pipeline if it fails
 - deploys the Docker Compose stack
 - archives JUnit reports
 - sends success/failure email

@@ -3,7 +3,7 @@ pipeline {
 
     triggers {
         pollSCM('')
-        cron('H H(0-4) * * 1-5') // Automatically triggers a clean monitoring scan every weeknight between midnight and 4 AM
+        cron('H H(0-4) * * 1-5') // AutoMatically triggers a clean monitoring scan every weeknight between midnight and 4 AM
     }
 
     tools {

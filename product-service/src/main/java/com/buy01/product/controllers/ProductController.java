@@ -1,8 +1,8 @@
-package com.buy01.product.controller;
+package com.buy01.product.controllers;
 
-import com.buy01.product.dto.ProductRequest;
-import com.buy01.product.dto.ProductResponse;
-import com.buy01.product.service.ProductService;
+import com.buy01.product.dtos.ProductRequest;
+import com.buy01.product.dtos.ProductResponse;
+import com.buy01.product.services.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,7 +20,6 @@ public class ProductController {
     private final ProductService productService;
 
     // ── Public ──────────────────────────────────────────────
-
     @GetMapping
     public ResponseEntity<List<ProductResponse>> getAllProducts() {
         return ResponseEntity.ok(productService.getAllProducts());
@@ -32,7 +31,6 @@ public class ProductController {
     }
 
     // ── Seller only ─────────────────────────────────────────
-
     @PostMapping
     public ResponseEntity<ProductResponse> createProduct(
             @Valid @RequestBody ProductRequest request,

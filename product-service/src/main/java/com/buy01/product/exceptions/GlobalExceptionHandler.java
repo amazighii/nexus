@@ -1,4 +1,4 @@
-package com.buy01.product.exception;
+package com.buy01.product.exceptions;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

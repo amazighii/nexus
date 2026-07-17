@@ -3,7 +3,7 @@ package com.buy01.product.kafka;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.buy01.product.model.EventType;
+import com.buy01.product.models.EventType;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

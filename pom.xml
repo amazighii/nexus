@@ -13,6 +13,7 @@
         <module>user-service</module>
         <module>product-service</module>
         <module>media-service</module>
+        <module>order-service</module>
         <module>gateway</module>
         <module>eureka-server</module>
     </modules>

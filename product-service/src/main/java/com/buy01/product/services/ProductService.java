@@ -1,4 +1,4 @@
-package com.buy01.product.service;
+package com.buy01.product.services;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -6,24 +6,28 @@ import java.util.stream.Collectors;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import com.buy01.product.dto.ProductRequest;
-import com.buy01.product.dto.ProductResponse;
-import com.buy01.product.exception.ProductAccessDeniedException;
-import com.buy01.product.exception.ProductNotFoundException;
+import com.buy01.product.dtos.ProductRequest;
+import com.buy01.product.dtos.ProductResponse;
+import com.buy01.product.exceptions.ProductAccessDeniedException;
+import com.buy01.product.exceptions.ProductNotFoundException;
 import com.buy01.product.kafka.KafkaProducerConfig;
 import com.buy01.product.kafka.ProductEvent;
-import com.buy01.product.model.EventType;
-import com.buy01.product.model.Product;
-import com.buy01.product.repository.ProductRepository;
+import com.buy01.product.models.EventType;
+import com.buy01.product.models.Product;
+import com.buy01.product.repositories.ProductRepository;
 
-import lombok.RequiredArgsConstructor;
+// import lombok.RequiredArgsConstructor;
 
 @Service
-@RequiredArgsConstructor
 public class ProductService {
 
     private final ProductRepository productRepository;
     private final KafkaTemplate<String, ProductEvent> kafkaTemplate;
+
+    public ProductService(ProductRepository productRepository, KafkaTemplate<String, ProductEvent> kafkaTemplate) {
+        this.productRepository = productRepository;
+        this.kafkaTemplate = kafkaTemplate;
+    }
 
     // ── Public ──────────────────────────────────────────────
     public List<ProductResponse> getAllProducts() {

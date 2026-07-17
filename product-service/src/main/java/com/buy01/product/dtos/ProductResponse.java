@@ -1,4 +1,4 @@
-package com.buy01.product.dto;
+package com.buy01.product.dtos;
 
 import lombok.Data;
 

@@ -22,14 +22,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 
-import com.buy01.product.dto.ProductRequest;
-import com.buy01.product.dto.ProductResponse;
+import com.buy01.product.dtos.ProductRequest;
+import com.buy01.product.dtos.ProductResponse;
 import com.buy01.product.kafka.KafkaProducerConfig;
 import com.buy01.product.kafka.ProductEvent;
-import com.buy01.product.model.EventType;
-import com.buy01.product.model.Product;
-import com.buy01.product.repository.ProductRepository;
-import com.buy01.product.service.ProductService;
+import com.buy01.product.models.EventType;
+import com.buy01.product.models.Product;
+import com.buy01.product.repositories.ProductRepository;
+import com.buy01.product.services.ProductService;
 
 @ExtendWith(MockitoExtension.class)
 public class ProductServiceTest {

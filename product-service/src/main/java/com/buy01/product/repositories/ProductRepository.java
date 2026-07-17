@@ -1,6 +1,6 @@
-package com.buy01.product.repository;
+package com.buy01.product.repositories;
 
-import com.buy01.product.model.Product;
+import com.buy01.product.models.Product;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;

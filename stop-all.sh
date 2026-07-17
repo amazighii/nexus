@@ -12,7 +12,7 @@ echo "Stopping MongoDB container..."
 
 # Stop MongoDB container
 
-docker compose stop
+docker compose down 
 # chmod +x ./scripts/db/db-stop.sh
 # ./scripts/db/db-stop.sh
 

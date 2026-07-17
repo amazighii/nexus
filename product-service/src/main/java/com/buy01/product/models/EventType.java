@@ -1,4 +1,4 @@
-package com.buy01.product.model;
+package com.buy01.product.models;
 
 public enum EventType {
     PRODUCT_CREATED,

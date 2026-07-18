@@ -2,21 +2,24 @@ package com.buy01.orders.models;
 
 import java.util.Date;
 
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import com.mongodb.lang.NonNull;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 
 @Document(collection = "order")
 @Data
-@AllArgsConstructor
+@RequiredArgsConstructor
+@NoArgsConstructor
 public class Order {
 
-    @Indexed
+    @Id
     String Id;
 
     @NonNull
@@ -51,6 +54,9 @@ public class Order {
     @NonNull
     @Field("payment_method")
     OrderPaymentMethod paymentMethod;
+
+    @NonNull
+    String productId;
 
     @NonNull
     Date date;

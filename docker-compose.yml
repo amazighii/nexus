@@ -7,8 +7,10 @@ services:
     networks:
       - shared-net
       # - users-net
-    expose:
-      - "27017"
+    # expose:
+    #   - "27017"
+    ports:
+      - "27017:27017"
     volumes:
       - mongodb_users_data:/data/db
     healthcheck:
@@ -26,8 +28,10 @@ services:
     networks:
       # - products-net
       - shared-net
-    expose:
-      - "27017"
+    # expose:
+    #   - "27017"
+    ports:
+      - "27018:27017"
     volumes:
       - mongodb_products_data:/data/db
     healthcheck:
@@ -45,8 +49,8 @@ services:
     networks:
       # - media-net
       - shared-net
-    expose:
-      - "27017"
+    ports:
+      - "27019:27017"
     volumes:
       - mongodb_media_data:/data/db
     healthcheck:
@@ -63,8 +67,8 @@ services:
     networks:
       # - orders-net
       - shared-net
-    expose:
-      - "27017"
+    ports:
+      - "27020:27017"
     volumes:
       - mongodb_orders_data:/data/db
     healthcheck:
@@ -81,16 +85,23 @@ services:
     restart: unless-stopped
     networks:
       - shared-net
-    expose:
-      - "9092"
+    ports:
+      - "29092:29092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
-      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      # 1. ADD PLAINTEXT_HOST to listeners so Kafka opens port 29092 inside the container
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:29092"
+
+      # This part you already have correct!
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
+
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      # 2. ADD PLAINTEXT_HOST:PLAINTEXT to the map so Kafka knows it's unencrypted text
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -124,6 +135,55 @@ services:
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
+
+  # Traefik Edge Router
+  # traefik:
+  #   image: traefik:v3.6
+  #   container_name: traefik
+  #   restart: unless-stopped
+  #   command:
+  #     - "--providers.docker=true"
+  #     - "--providers.docker.exposedbydefault=false"
+  #     - "--entrypoints.web.address=:80"
+  #     - "--entrypoints.websecure.address=:443"
+  #     - "--entrypoints.websecure.http.tls={}"
+  #   ports:
+  #     - "8000:80"
+  #     - "8443:443"
+  #   volumes:
+  #     - /run/user/1038/docker.sock:/var/run/docker.sock:ro
+  #   networks:
+  #     - shared-net
+
+# # Networks
+networks:
+  shared-net:
+    name: shared-net
+    # external: true
+  # users-net:
+  #   name: users-net
+  #   driver: bridge
+  #   internal: true
+  # products-net:
+  #   name: products-net
+  #   driver: bridge
+  #   internal: true
+  # media-net:
+  #   name: media-net
+  #   driver: bridge
+  #   internal: false
+  # orders-net:
+  #   name: orders-net
+  #   driver: bridge
+  #   internal: true
+
+# Volumes
+volumes:
+  mongodb_users_data:
+  mongodb_products_data:
+  mongodb_media_data:
+  minio_data:
+  mongodb_orders_data:
 
 #   # Eureka Server
 #   eureka-server:
@@ -247,25 +307,6 @@ services:
 #       MEDIA_ORPHAN_MAX_AGE_MINUTES: ${MEDIA_ORPHAN_MAX_AGE_MINUTES:-1}
 #       MEDIA_ORPHAN_CLEANUP_FIXED_RATE_MS: ${MEDIA_ORPHAN_CLEANUP_FIXED_RATE_MS:-60000}
 
-#   # Traefik Edge Router
-#   traefik:
-#     image: traefik:v3.6
-#     container_name: traefik
-#     restart: unless-stopped
-#     command:
-#       - "--providers.docker=true"
-#       - "--providers.docker.exposedbydefault=false"
-#       - "--entrypoints.web.address=:80"
-#       - "--entrypoints.websecure.address=:443"
-#       - "--entrypoints.websecure.http.tls={}"
-#     ports:
-#       - "8000:80"
-#       - "8443:443"
-#     volumes:
-#       - /run/user/1038/docker.sock:/var/run/docker.sock:ro
-#     networks:
-#       - shared-net
-
 #   # Gateway
 #   gateway:
 #     build:
@@ -329,32 +370,3 @@ services:
 #       - "traefik.http.routers.frontend.tls=true"
 #       - "traefik.http.services.frontend.loadbalancer.server.port=80"
 #       - "traefik.http.routers.frontend.priority=1" # Lower priority fallback
-# # Networks
-networks:
-  shared-net:
-    name: shared-net
-    external: true
-  # users-net:
-  #   name: users-net
-  #   driver: bridge
-  #   internal: true
-  # products-net:
-  #   name: products-net
-  #   driver: bridge
-  #   internal: true
-  # media-net:
-  #   name: media-net
-  #   driver: bridge
-  #   internal: false
-  # orders-net:
-  #   name: orders-net
-  #   driver: bridge
-  #   internal: true
-
-# Volumes
-volumes:
-  mongodb_users_data:
-  mongodb_products_data:
-  mongodb_media_data:
-  minio_data:
-  mongodb_orders_data:

@@ -4,6 +4,7 @@ import java.util.Date;
 
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import com.mongodb.lang.NonNull;
 
@@ -25,13 +26,15 @@ public class Order {
     String lastname;
 
     @NonNull
-    String phone_number;
+    @Field("phone_number")
+    String phoneNumber;
 
     @NonNull
     String address;
 
     @NonNull
-    String client_id;
+    @Field("client_id")
+    String clientId;
 
     @NonNull
     OrderStatus status;
@@ -46,7 +49,8 @@ public class Order {
     Double price;
 
     @NonNull
-    OrderPaymentMethod payment_method;
+    @Field("payment_method")
+    OrderPaymentMethod paymentMethod;
 
     @NonNull
     Date date;

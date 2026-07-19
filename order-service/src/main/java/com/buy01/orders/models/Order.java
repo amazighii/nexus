@@ -3,7 +3,6 @@ package com.buy01.orders.models;
 import java.util.Date;
 
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
@@ -20,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class Order {
 
     @Id
-    String Id;
+    String id;
 
     @NonNull
     String firstname;
@@ -43,7 +42,8 @@ public class Order {
     OrderStatus status;
 
     @NonNull
-    Boolean removed;
+    @Field("is_removed")
+    Boolean isRemoved;
 
     @NonNull
     Long quantity;

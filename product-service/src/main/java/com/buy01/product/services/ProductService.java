@@ -54,9 +54,12 @@ public class ProductService {
                 new ProductEvent(
                         EventType.PRODUCT_CREATED,
                         saved.getId(),
-                        sellerId, saved.getName(),
-                        product.getImageUrls()
-                ));
+                        sellerId,
+                        saved.getName(),
+                        saved.getPrice(),
+                        saved.getQuantity(),
+                        saved.getDescription(),
+                        saved.getImageUrls()));
 
         return toResponse(saved);
     }
@@ -91,8 +94,10 @@ public class ProductService {
                         id,
                         sellerId,
                         product.getName(),
-                        product.getImageUrls()
-                ));
+                        product.getPrice(),
+                        product.getQuantity(),
+                        product.getDescription(),
+                        product.getImageUrls()));
     }
 
     // ── Helpers ─────────────────────────────────────────────

@@ -27,6 +27,7 @@ public class MediaEventConsumer {
 
     @KafkaListener(topics = "product-events", groupId = "media-service-group")
     public void handleProductEvent(ProductEvent event) {
+        System.out.println("Received product event: " + event);
         switch (event.getEventType()) {
             case PRODUCT_CREATED ->
                 handleProductCreated(event);
@@ -39,6 +40,7 @@ public class MediaEventConsumer {
     }
 
     public void handleProductCreated(ProductEvent event) {
+        System.out.println("Received product created event: " + event);
         if (event.getImageUrls() == null) {
             System.out.println("Received product event with no image URLs for ID: {}" + event.getProductId());
         }

@@ -1,5 +1,6 @@
 package com.buy01.product.kafka;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,12 +14,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ProductEvent {
-    // "PRODUCT_CREATED"
-    // "PRODUCT_UPDATED"
-    // "PRODUCT_DELETED"
     private EventType eventType;
     private String productId;
     private String sellerId;
     private String productName;
+    private BigDecimal price;
+    private long quantity;
+    private String description;
     private List<String> imageUrls = new ArrayList<>(); 
 }

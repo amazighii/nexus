@@ -10,6 +10,8 @@
 
       @if (session.isAuthed()) {
         <a routerLink="/profile" routerLinkActive="is-active">Profile</a>
+        <a routerLink="/orders" routerLinkActive="is-active">Orders</a>
+        <a routerLink="/cart" routerLinkActive="is-active">Cart</a>
         @if (showSeller()) {
           <a routerLink="/seller" routerLinkActive="is-active">Seller</a>
         }
@@ -21,4 +23,3 @@
     </nav>
   </div>
 </header>
-

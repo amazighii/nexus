@@ -111,11 +111,15 @@ public class OrderService {
         List<ProductRef> products = new ArrayList<>();
         Double totalPrice = 0.0;
 
-        if (createOrderDto.getProductIds() == null || createOrderDto.getProductIds().isEmpty()) {
+        List<ProductOrder> requestedProducts = createOrderDto.requestedProducts();
+        if (requestedProducts == null || requestedProducts.isEmpty()) {
             throw new BadRequest("Products cannot be null or empty");
         }
 
-        for (ProductOrder productOrder : createOrderDto.getProductIds()) {
+        for (ProductOrder productOrder : requestedProducts) {
+            if (productOrder.getProductId() == null || productOrder.getProductId().isBlank() || productOrder.getQuantity() == null || productOrder.getQuantity() < 1) {
+                throw new BadRequest("Each order product must have a product ID and a quantity of at least one.");
+            }
             ProductRef productRef = productRefRepository
                     .findByProductId(productOrder.getProductId())
                     .orElseThrow(() -> new BadRequest("Product not found"));
@@ -124,9 +128,15 @@ public class OrderService {
 
             totalPrice += productPrice.doubleValue();
 
-            products.add(productRef);
-
-            productRef.setQuantity(productOrder.getQuantity());
+            // Store a snapshot in the order. Do not mutate the shared product reference.
+            products.add(new ProductRef(
+                    productRef.getProductId(),
+                    productRef.getSellerId(),
+                    productRef.getProductName(),
+                    productRef.getPrice(),
+                    productOrder.getQuantity(),
+                    productRef.getDescription(),
+                    productRef.getImageUrl()));
 
         }
 

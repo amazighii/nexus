@@ -2,6 +2,9 @@ package com.buy01.product.controllers;
 
 import com.buy01.product.dtos.ProductRequest;
 import com.buy01.product.dtos.ProductResponse;
+import com.buy01.product.dtos.CartItemRequest;
+import com.buy01.product.dtos.CartResponse;
+import com.buy01.product.services.CartService;
 import com.buy01.product.services.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,23 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    private final CartService cartService;
+
+    @GetMapping("/cart")
+    public ResponseEntity<CartResponse> getCart(Authentication auth) {
+        return ResponseEntity.ok(cartService.getCart(auth.getName()));
+    }
+
+    @PostMapping("/cart")
+    public ResponseEntity<CartResponse> addToCart(@Valid @RequestBody CartItemRequest request, Authentication auth) {
+        return ResponseEntity.ok(cartService.addItem(auth.getName(), request));
+    }
+
+    @DeleteMapping("/cart")
+    public ResponseEntity<Void> removeFromCart(@RequestParam(required = false) String productId, Authentication auth) {
+        cartService.remove(auth.getName(), productId);
+        return ResponseEntity.noContent().build();
+    }
 
     // ── Public ──────────────────────────────────────────────
     @GetMapping

@@ -18,5 +18,13 @@ public class CreateOrderDto {
 
     String paymentMethod;
 
+    /** Product IDs and quantities submitted by direct purchase or cart checkout. */
     List<ProductOrder> productIds = new ArrayList<>();
+
+    /** Preferred name for new clients; productIds remains supported for compatibility. */
+    List<ProductOrder> products = new ArrayList<>();
+
+    public List<ProductOrder> requestedProducts() {
+        return products != null && !products.isEmpty() ? products : productIds;
+    }
 }

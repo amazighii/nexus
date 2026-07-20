@@ -10,7 +10,7 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class ClientOrderDto {
-    String Id;
+    String id;
 
     // String firstname;
 

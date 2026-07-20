@@ -26,6 +26,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Authenticated clients own their carts. This must precede the public product GET rule.
+                        .requestMatchers("/api/products/cart/**").hasRole("CLIENT")
                         // Public — anyone can browse products
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()

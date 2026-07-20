@@ -1,5 +1,9 @@
 package com.buy01.orders.dtos;
 
+import java.util.List;
+
+import com.buy01.orders.models.ProductRef;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -8,23 +12,23 @@ import lombok.Data;
 public class ClientOrderDto {
     String Id;
 
-    String firstname;
+    // String firstname;
 
-    String lastname;
+    // String lastname;
 
-    String phoneNumber;
+    // String phoneNumber;
 
-    String address;
+    // String address;
 
     String clientId;
 
     String status;
 
-    Long quantity;
-
-    Double price;
+    Double totalPrice;
 
     String paymentMethod;
+
+    List<ProductRef> products;
 
     String date;
 }

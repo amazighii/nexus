@@ -1,11 +1,24 @@
 package com.buy01.orders.services;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import org.bson.Document;
+import org.springframework.data.domain.Sort;
+// import org.springframework.boot.autoconfigure.data.web.SpringDataWebProperties.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationExpression;
+import org.springframework.data.mongodb.core.aggregation.AggregationOperationContext;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.springframework.data.mongodb.core.aggregation.ArithmeticOperators;
+import org.springframework.data.mongodb.core.aggregation.ArrayOperators;
+import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
+import org.springframework.data.mongodb.core.aggregation.ConvertOperators;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
@@ -14,7 +27,9 @@ import com.buy01.orders.dtos.ClientOrderDto;
 import com.buy01.orders.dtos.ClientOrdersList;
 import com.buy01.orders.dtos.CreateOrderDto;
 import com.buy01.orders.dtos.CreateOrderMessage;
+import com.buy01.orders.dtos.ProductOrder;
 import com.buy01.orders.dtos.ReturnMessage;
+import com.buy01.orders.dtos.TopProductDto;
 import com.buy01.orders.exception.BadRequest;
 import com.buy01.orders.exception.ForbiddenAction;
 import com.buy01.orders.exception.OrderNotFound;
@@ -42,12 +57,28 @@ public class OrderService {
         return constructClientOrderDto(orders);
     }
 
-    public ClientOrdersList getSellerOrders(String userId, String userRole) {
-        if (!userRole.equals("SELLER")) {
+    public ClientOrdersList getSellerOrders(String sellerId, String userRole) {
+        if (!"SELLER".equals(userRole)) {
             throw new ForbiddenAction("This action is forbidden");
         }
 
-        List<Order> orders = orderRepository.findOrdersBySellerIdAndIsRemovedFalse(userId);
+        Aggregation aggregation = Aggregation.newAggregation(
+                // 1. Filter active orders for this seller
+                Aggregation.match(
+                        Criteria.where("is_removed").is(false)
+                                .and("products.sellerId").is(sellerId)),
+
+                // 2. Keep the entire Order object as-is, just overwrite 'products' with the
+                // filtered list
+                Aggregation.addFields()
+                        .addFieldWithValue(
+                                "products",
+                                ArrayOperators.Filter.filter("products")
+                                        .as("product")
+                                        .by(ComparisonOperators.valueOf("$$product.sellerId").equalToValue(sellerId)))
+                        .build());
+
+        List<Order> orders = mongoTemplate.aggregate(aggregation, Order.class, Order.class).getMappedResults();
 
         return constructClientOrderDto(orders);
     }
@@ -58,15 +89,15 @@ public class OrderService {
         orders.forEach(order -> {
             ClientOrderDto clientOrderDto = new ClientOrderDto(
                     order.getId(),
-                    order.getFirstname(),
-                    order.getLastname(),
-                    order.getPhoneNumber(),
-                    order.getAddress(),
+                    // order.getFirstname(),
+                    // order.getLastname(),
+                    // order.getPhoneNumber(),
+                    // order.getAddress(),
                     order.getClientId(),
                     order.getStatus().toString(),
-                    order.getQuantity(),
-                    order.getPrice(),
+                    order.getTotalPrice(),
                     order.getPaymentMethod().toString(),
+                    order.getProducts(),
                     order.getDate().toString());
             clientOrdersList.getClientOrders().add(clientOrderDto);
         });
@@ -75,26 +106,39 @@ public class OrderService {
     }
 
     public CreateOrderMessage createOrder(String userId, CreateOrderDto createOrderDto) {
+        System.out.println("im here in createOrder");
         Order order = new Order();
+        List<ProductRef> products = new ArrayList<>();
+        Double totalPrice = 0.0;
 
-        ProductRef productRef = productRefRepository
-                .findByProductId(createOrderDto.getProductId())
-                .orElseThrow(() -> new BadRequest("Product not found"));
+        if (createOrderDto.getProductIds() == null || createOrderDto.getProductIds().isEmpty()) {
+            throw new BadRequest("Products cannot be null or empty");
+        }
 
-        BigDecimal productPrice = productRef.getPrice().multiply(BigDecimal.valueOf(createOrderDto.getQuantity()));
-        Double price = productPrice.doubleValue();
+        for (ProductOrder productOrder : createOrderDto.getProductIds()) {
+            ProductRef productRef = productRefRepository
+                    .findByProductId(productOrder.getProductId())
+                    .orElseThrow(() -> new BadRequest("Product not found"));
+
+            BigDecimal productPrice = productRef.getPrice().multiply(BigDecimal.valueOf(productOrder.getQuantity()));
+
+            totalPrice += productPrice.doubleValue();
+
+            products.add(productRef);
+
+            productRef.setQuantity(productOrder.getQuantity());
+
+        }
 
         order.setFirstname(createOrderDto.getFirstname());
         order.setLastname(createOrderDto.getLastname());
         order.setPhoneNumber(createOrderDto.getPhoneNumber());
         order.setAddress(createOrderDto.getAddress());
         order.setClientId(userId);
-        order.setQuantity(createOrderDto.getQuantity());
-        order.setProductId(createOrderDto.getProductId());
+        order.setProducts(products);
         order.setDate(new java.util.Date());
         order.setIsRemoved(false);
-        order.setPrice(price);
-        order.setSellerId(productRef.getSellerId());
+        order.setTotalPrice(totalPrice);
 
         try {
             order.setStatus(OrderStatus.valueOf("PENDING"));
@@ -185,6 +229,56 @@ public class OrderService {
 
         return constructClientOrderDto(orders);
 
+    }
+
+    public List<TopProductDto> getClientBestProducts(String clientId, Long limit) {
+
+        // Safely calculates (price * quantity) even if price is string or null
+        AggregationExpression calculateItemTotal = new AggregationExpression() {
+            @Override
+            public Document toDocument(AggregationOperationContext context) {
+                return new Document("$multiply", Arrays.asList(
+                        new Document("$toDouble", new Document("$ifNull", Arrays.asList("$products.price", 0.0))),
+                        "$products.quantity"));
+            }
+        };
+
+        Aggregation aggregation = Aggregation.newAggregation(
+                // 1. Filter ACTIVE + DELIVERED orders for this client
+                Aggregation.match(
+                        Criteria.where("client_id").is(clientId)
+                                .and("is_removed").is(false)
+                                .and("status").is(OrderStatus.DELIVERED.name()) // <--- Only completed/delivered orders
+                ),
+
+                // 2. Unwind the products array
+                Aggregation.unwind("products"),
+
+                // 3. Group by products._id and sum quantities + total spent
+                Aggregation.group("products._id")
+                        .first("products.productName").as("productName")
+                        .first("products.imageUrl").as("imageUrl")
+                        .sum("products.quantity").as("totalQuantity")
+                        .sum(calculateItemTotal).as("totalSpent"), // <--- Calculates money spent
+
+                // 4. Project fields into DTO structure (_id -> productId)
+                Aggregation.project()
+                        .and("_id").as("productId")
+                        .and("productName").as("productName")
+                        .and("imageUrl").as("imageUrl")
+                        .and("totalQuantity").as("totalQuantity")
+                        .and("totalSpent").as("totalSpent"),
+
+                // 5. Sort by highest quantity purchased and limit
+                Aggregation.sort(Sort.Direction.DESC, "totalQuantity"),
+                Aggregation.limit(limit));
+
+        AggregationResults<TopProductDto> results = mongoTemplate.aggregate(
+                aggregation,
+                Order.class,
+                TopProductDto.class);
+
+        return results.getMappedResults();
     }
 
 }

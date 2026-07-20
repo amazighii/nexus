@@ -1,6 +1,7 @@
 package com.buy01.orders.controllers;
 
 import java.util.Date;
+import java.util.List;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import com.buy01.orders.dtos.ClientOrdersList;
 import com.buy01.orders.dtos.CreateOrderDto;
 import com.buy01.orders.dtos.CreateOrderMessage;
 import com.buy01.orders.dtos.ReturnMessage;
+import com.buy01.orders.dtos.TopProductDto;
 import com.buy01.orders.services.OrderService;
 
 import lombok.RequiredArgsConstructor;
@@ -42,7 +44,7 @@ public class OrderController {
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String userRole) {
 
-        return ResponseEntity.ok(orderService.getSellerOrders(userId,  userRole));
+        return ResponseEntity.ok(orderService.getSellerOrders(userId, userRole));
     }
 
     @PostMapping
@@ -82,6 +84,17 @@ public class OrderController {
             @RequestParam(value = "date", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
 
         ClientOrdersList response = orderService.searchOrders(userId, status, date);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/client/best-products")
+    ResponseEntity<List<TopProductDto>> clientBestProducts(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Role") String userRole,
+            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+
+        List<TopProductDto> response = orderService.getClientBestProducts(userId, limit);
+
         return ResponseEntity.ok(response);
     }
 }

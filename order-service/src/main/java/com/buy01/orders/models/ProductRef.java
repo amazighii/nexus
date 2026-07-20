@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import com.mongodb.lang.NonNull;
 
@@ -28,6 +29,7 @@ public class ProductRef {
     String productName;
 
     @NonNull
+    @Field(targetType = FieldType.DECIMAL128) // Forces MongoDB to store BigDecimal as a number!
     BigDecimal price;
 
     @NonNull

@@ -1,5 +1,8 @@
 package com.buy01.orders.dtos;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import lombok.Data;
 
 @Data
@@ -13,9 +16,7 @@ public class CreateOrderDto {
 
     String address;
 
-    Long quantity;
-
     String paymentMethod;
 
-    String productId;
+    List<ProductOrder> productIds = new ArrayList<>();
 }

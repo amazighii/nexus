@@ -21,15 +21,19 @@ public class ProductRef {
     @Field("product_id")
     String productId;
 
+    @NonNull
     String sellerId;
 
+    @NonNull
     String productName;
 
     @NonNull
     BigDecimal price;
 
+    @NonNull
     long quantity;
 
+    @NonNull
     String description;
 
     @Field("image_url")

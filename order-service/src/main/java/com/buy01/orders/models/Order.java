@@ -59,5 +59,8 @@ public class Order {
     String productId;
 
     @NonNull
+    String sellerId;
+
+    @NonNull
     Date date;
 }

@@ -42,6 +42,16 @@ public class OrderService {
         return constructClientOrderDto(orders);
     }
 
+    public ClientOrdersList getSellerOrders(String userId, String userRole) {
+        if (!userRole.equals("SELLER")) {
+            throw new ForbiddenAction("This action is forbidden");
+        }
+
+        List<Order> orders = orderRepository.findOrdersBySellerIdAndIsRemovedFalse(userId);
+
+        return constructClientOrderDto(orders);
+    }
+
     private ClientOrdersList constructClientOrderDto(List<Order> orders) {
         ClientOrdersList clientOrdersList = new ClientOrdersList();
 
@@ -84,6 +94,7 @@ public class OrderService {
         order.setDate(new java.util.Date());
         order.setIsRemoved(false);
         order.setPrice(price);
+        order.setSellerId(productRef.getSellerId());
 
         try {
             order.setStatus(OrderStatus.valueOf("PENDING"));

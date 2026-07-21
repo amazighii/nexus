@@ -8,60 +8,273 @@
   </div>
 
   <ul class="nav nav-tabs mb-3" aria-label="Order view">
-    <li class="nav-item"><button class="nav-link" type="button" [class.active]="view() === 'client'" (click)="changeView('client')">My orders</button></li>
+    <li class="nav-item">
+      <button class="nav-link" type="button" [class.active]="view() === 'client'" (click)="changeView('client')">
+        My orders
+      </button>
+    </li>
     @if (canViewSellerOrders()) {
-      <li class="nav-item"><button class="nav-link" type="button" [class.active]="view() === 'seller'" (click)="changeView('seller')">Received orders</button></li>
+    <li class="nav-item">
+      <button class="nav-link" type="button" [class.active]="view() === 'seller'" (click)="changeView('seller')">
+        Received orders
+      </button>
+    </li>
     }
   </ul>
 
   <form class="card card-body mb-4" [formGroup]="filters" (ngSubmit)="applyFilters()">
     <div class="row g-3 align-items-end">
+      <div class="col-12 col-lg-3">
+        <label class="form-label" for="search">Search</label>
+        <input id="search" class="form-control" type="search" placeholder="Order, client, product"
+          formControlName="search" />
+      </div>
       <div class="col-12 col-sm-5 col-lg-4">
         <label class="form-label" for="status">Status</label>
-        <select id="status" class="form-select" formControlName="status" [disabled]="view() === 'seller'">
+        <select id="status" class="form-select" formControlName="status">
           <option value="">All statuses</option>
-          @for (status of statuses; track status) { <option [value]="status">{{ status }}</option> }
+          @for (status of statuses; track status) {
+          <option [value]="status">{{ status }}</option>
+          }
         </select>
       </div>
-      <div class="col-12 col-sm-5 col-lg-4">
-        <label class="form-label" for="date">Order date</label>
-        <input id="date" class="form-control" type="date" formControlName="date" [disabled]="view() === 'seller'" />
+      <div class="col-12 col-sm-6 col-lg-2">
+        <label class="form-label" for="dateFrom">From</label>
+        <input id="dateFrom" class="form-control" type="date" formControlName="dateFrom" />
+      </div>
+      <div class="col-12 col-sm-6 col-lg-2">
+        <label class="form-label" for="dateTo">To</label>
+        <input id="dateTo" class="form-control" type="date" formControlName="dateTo" />
       </div>
       <div class="col-12 col-sm-auto d-flex gap-2">
-        <button class="btn btn-primary" type="submit" [disabled]="view() === 'seller'">Filter</button>
+        <button class="btn btn-primary" type="submit">Filter</button>
         <button class="btn btn-outline-secondary" type="button" (click)="clearFilters()">Clear</button>
       </div>
     </div>
-    @if (view() === 'seller') { <small class="text-body-secondary mt-2">Server-side search currently applies to client orders; received orders are shown in full.</small> }
   </form>
 
-  @if (state$ | async; as state) {
-    @if (state.loading) {
-      <div class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading orders</span></div></div>
-    } @else if (state.error) {
-      <div class="alert alert-danger" role="alert">{{ state.error }}</div>
-    } @else if (!state.orders.length) {
-      <div class="card card-body text-center py-5 text-body-secondary">No orders found.</div>
-    } @else {
-      <div class="table-responsive d-none d-md-block">
-        <table class="table table-hover align-middle">
-          <thead><tr><th>Order</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
-          <tbody>
-            @for (order of state.orders; track order.id) {
-              <tr><td class="text-break">#{{ order.id }}</td><td>{{ order.date | date:'mediumDate' }}</td><td><div class="vstack gap-1">@for (item of order.products; track item.productId) { <div class="d-flex align-items-center gap-2">@if (item.imageUrl) { <img class="img-thumbnail" [src]="item.imageUrl" [alt]="item.productName" width="36" height="36" style="object-fit: cover" /> }<span>{{ item.productName }} <small class="text-body-secondary">×{{ item.quantity }}</small></span></div> }</div></td><td>{{ order.totalPrice | currency }}</td><td><span class="badge" [class]="badgeClass(order.status)">{{ order.status }}</span></td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-outline-warning" type="button" [disabled]="!canCancel(order) || actionInProgress() === order.id" (click)="cancel(order)">Cancel</button><button class="btn btn-outline-danger" type="button" [disabled]="view() !== 'client' || actionInProgress() === order.id" (click)="pendingRemoval.set(order)">Remove</button></div></td></tr>
+  @if (state().loading) {
+  <div class="text-center py-5">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Loading orders</span>
+    </div>
+  </div>
+  } @else if (state().error) {
+  <div class="alert alert-danger" role="alert">{{ state().error }}</div>
+  } @else if (!filteredOrders().length) {
+  <div class="card card-body text-center py-5 text-body-secondary">No orders found.</div>
+  } @else {
+  <!-- Desktop Table View -->
+  <div class="table-responsive d-none d-md-block">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Date</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (order of filteredOrders(); track order.id) {
+        <tr role="button" [class.table-active]="selectedOrder()?.id === order.id" (click)="openDetails(order)">
+          <td class="text-break">#{{ order.id }}</td>
+          <td>{{ order.date }}</td>
+          <td>
+            <div class="vstack gap-1">
+              @for (item of order.products; track item.productId) {
+              <div class="d-flex align-items-center gap-2">
+                @if (item.imageUrl) {
+                <img class="img-thumbnail" [src]="item.imageUrl" [alt]="item.productName" width="36" height="36"
+                  style="object-fit: cover" />
+                }
+                <span>
+                  {{ item.productName }}
+                  <small class="text-body-secondary">×{{ item.quantity }}</small>
+                </span>
+              </div>
+              }
+            </div>
+          </td>
+          <td>{{ order.totalPrice | currency }}</td>
+          <td>
+            <span class="badge" [class]="badgeClass(order.status)">
+              {{ order.status }}
+            </span>
+          </td>
+          <td class="text-end">
+            @if (view() === 'seller') {
+            <button class="btn btn-sm btn-outline-primary" type="button"
+              (click)="selectedOrder.set(order); $event.stopPropagation()">
+              Details
+            </button>
+            } @else {
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-warning" type="button"
+                [disabled]="!canCancel(order) || actionInProgress() === order.id"
+                (click)="cancel(order); $event.stopPropagation()">
+                Cancel
+              </button>
+              <button class="btn btn-outline-danger" type="button" [disabled]="actionInProgress() === order.id"
+                (click)="pendingRemoval.set(order); $event.stopPropagation()">
+                Remove
+              </button>
+            </div>
             }
-          </tbody>
-        </table>
-      </div>
-      <div class="d-grid gap-3 d-md-none">
-        @for (order of state.orders; track order.id) {
-          <article class="card"><div class="card-body"><div class="d-flex justify-content-between gap-2"><strong class="text-break">#{{ order.id }}</strong><span class="badge align-self-start" [class]="badgeClass(order.status)">{{ order.status }}</span></div><div class="vstack gap-2 my-3">@for (item of order.products; track item.productId) { <div class="d-flex align-items-center gap-2">@if (item.imageUrl) { <img class="img-thumbnail" [src]="item.imageUrl" [alt]="item.productName" width="44" height="44" style="object-fit: cover" /> }<span>{{ item.productName }} ×{{ item.quantity }}</span></div> }</div><dl class="row small mt-3 mb-2"><dt class="col-5">Date</dt><dd class="col-7">{{ order.date | date:'mediumDate' }}</dd><dt class="col-5">Total</dt><dd class="col-7">{{ order.totalPrice | currency }}</dd></dl><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-warning" type="button" [disabled]="!canCancel(order) || actionInProgress() === order.id" (click)="cancel(order)">Cancel</button><button class="btn btn-sm btn-outline-danger" type="button" [disabled]="view() !== 'client' || actionInProgress() === order.id" (click)="pendingRemoval.set(order)">Remove</button></div></div></article>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Mobile Card View -->
+  <div class="d-grid gap-3 d-md-none">
+    @for (order of filteredOrders(); track order.id) {
+    <article class="card" role="button" (click)="openDetails(order)">
+      <div class="card-body">
+        <div class="d-flex justify-content-between gap-2">
+          <strong class="text-break">#{{ order.id }}</strong>
+          <span class="badge align-self-start" [class]="badgeClass(order.status)">
+            {{ order.status }}
+          </span>
+        </div>
+        <div class="vstack gap-2 my-3">
+          @for (item of order.products; track item.productId) {
+          <div class="d-flex align-items-center gap-2">
+            @if (item.imageUrl) {
+            <img class="img-thumbnail" [src]="item.imageUrl" [alt]="item.productName" width="44" height="44"
+              style="object-fit: cover" />
+            } @else {
+            <div class="border rounded d-grid place-content-center text-body-secondary small"
+              style="width:44px;height:44px">No image</div>
+            }
+            <span>{{ item.productName }} ×{{ item.quantity }}</span>
+          </div>
+          }
+        </div>
+        <dl class="row small mt-3 mb-2">
+          <dt class="col-5">Date</dt>
+          <dd class="col-7">{{ order.date }}</dd>
+          <dt class="col-5">Total</dt>
+          <dd class="col-7">{{ order.totalPrice | currency }}</dd>
+        </dl>
+        @if (view() === 'seller') {
+        <button class="btn btn-sm btn-outline-primary" type="button"
+          (click)="selectedOrder.set(order); $event.stopPropagation()">
+          Details
+        </button>
+        } @else {
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-warning" type="button"
+            [disabled]="!canCancel(order) || actionInProgress() === order.id"
+            (click)="cancel(order); $event.stopPropagation()">
+            Cancel
+          </button>
+          <button class="btn btn-sm btn-outline-danger" type="button" [disabled]="actionInProgress() === order.id"
+            (click)="pendingRemoval.set(order); $event.stopPropagation()">
+            Remove
+          </button>
+        </div>
         }
       </div>
+    </article>
     }
+  </div>
   }
 
+  <!-- Removal Modal -->
   @if (pendingRemoval(); as order) {
-    <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5">Remove order?</h2><button class="btn-close" type="button" aria-label="Close" (click)="pendingRemoval.set(null)"></button></div><div class="modal-body">This hides order #{{ order.id }} from your order history.</div><div class="modal-footer"><button class="btn btn-outline-secondary" type="button" (click)="pendingRemoval.set(null)">Keep order</button><button class="btn btn-danger" type="button" [disabled]="actionInProgress() === order.id" (click)="confirmRemove()">Remove</button></div></div></div></div><div class="modal-backdrop show"></div>
+  <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5">Remove order?</h2>
+          <button class="btn-close" type="button" aria-label="Close" (click)="pendingRemoval.set(null)"></button>
+        </div>
+        <div class="modal-body">This hides order #{{ order.id }} from your order history.</div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" (click)="pendingRemoval.set(null)">
+            Keep order
+          </button>
+          <button class="btn btn-danger" type="button" [disabled]="actionInProgress() === order.id"
+            (click)="confirmRemove()">
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop show"></div>
+  }
+
+  <!-- Seller Details Modal -->
+  @if (selectedOrder(); as order) {
+  <div class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title fs-5">Order #{{ order.id }}</h2>
+            <div class="text-body-secondary small">{{ order.date }}</div>
+          </div>
+          <button class="btn-close" type="button" aria-label="Close" (click)="selectedOrder.set(null)"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-4">
+              <section class="border rounded p-3 h-100">
+                <h3 class="h6 mb-3">Client details</h3>
+                <dl class="mb-0 small">
+                  <dt>Name</dt>
+                  <dd>{{ clientName(order) }}</dd>
+                  <dt>Phone</dt>
+                  <dd>{{ order.phoneNumber || 'Not provided' }}</dd>
+                  <dt>Shipping address</dt>
+                  <dd class="mb-0">{{ order.address || 'Not provided' }}</dd>
+                </dl>
+              </section>
+            </div>
+            <div class="col-12 col-lg-8">
+              <section class="border rounded p-3">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                  <h3 class="h6 mb-0">Order summary</h3>
+                  <span class="badge" [class]="badgeClass(order.status)">{{ order.status }}</span>
+                </div>
+                <div class="vstack gap-3">
+                  @for (item of order.products; track item.productId) {
+                  <div class="d-flex align-items-center gap-3">
+                    @if (item.imageUrl) {
+                    <img class="img-thumbnail" [src]="item.imageUrl" [alt]="item.productName" width="58" height="58"
+                      style="object-fit: cover" />
+                    } @else {
+                    <div class="border rounded d-grid place-content-center text-body-secondary small"
+                      style="width:58px;height:58px">No image</div>
+                    }
+                    <div class="flex-grow-1 min-w-0">
+                      <div class="fw-semibold text-break">{{ item.productName }}</div>
+                      <div class="text-body-secondary small">Qty {{ item.quantity }} × {{ item.price | currency }}</div>
+                    </div>
+                    <strong>{{ item.quantity * item.price | currency }}</strong>
+                  </div>
+                  }
+                </div>
+                <div class="border-top mt-3 pt-3 d-flex justify-content-between">
+                  <span>Total</span>
+                  <strong>{{ order.totalPrice | currency }}</strong>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" type="button" (click)="selectedOrder.set(null)">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop show"></div>
   }
 </main>

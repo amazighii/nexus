@@ -51,11 +51,16 @@ import { ToastService } from '../../core/services/toast.service';
             <h1 class="title">{{ product()!.name }}</h1>
             <div class="price">{{ asNumber(product()!.price) | currency : 'USD' : 'symbol' : '1.2-2' }}</div>
             <p class="muted">{{ product()!.description }}</p>
+            @if (ownsProduct()) {
+              <div class="alert alert-warning mt-3 mb-0" role="alert">
+                You cannot buy products from your own seller account.
+              </div>
+            }
 
             <div class="d-flex flex-wrap gap-2 mt-3">
               <input class="form-control" style="width: 6rem" type="number" min="1" [max]="product()!.quantity" [value]="purchaseQuantity()" (input)="setPurchaseQuantity($event)" aria-label="Quantity" />
-              <button class="btn btn-primary" type="button" (click)="buyNow()">Buy now</button>
-              <button class="btn btn-outline-primary" type="button" (click)="addToCart()">Add to cart</button>
+              <button class="btn btn-primary" type="button" [disabled]="ownsProduct()" (click)="buyNow()">Buy now</button>
+              <button class="btn btn-outline-primary" type="button" [disabled]="ownsProduct()" (click)="addToCart()">Add to cart</button>
             </div>
 
             <div class="meta">
@@ -247,6 +252,7 @@ export class ProductDetailsPage {
     return `${seller.firstName} ${seller.lastName}`.trim() || 'Seller';
   });
   readonly sellerInitial = computed(() => this.sellerName().trim().charAt(0).toUpperCase() || 'S');
+  readonly ownsProduct = computed(() => this.session.isSeller() && this.product()?.sellerId === this.session.userId());
 
   constructor() {
     void this.load();
@@ -269,6 +275,10 @@ export class ProductDetailsPage {
       await this.router.navigateByUrl('/login');
       return;
     }
+    if (this.ownsProduct()) {
+      this.toast.show('info', 'Unavailable', 'You cannot buy your own product.');
+      return;
+    }
     await this.router.navigate(['/orders/new'], { queryParams: { productId: product.id, quantity: this.purchaseQuantity() } });
   }
 
@@ -277,6 +287,10 @@ export class ProductDetailsPage {
     if (!product) return;
     if (!this.session.isAuthed()) {
       void this.router.navigateByUrl('/login');
+      return;
+    }
+    if (this.ownsProduct()) {
+      this.toast.show('info', 'Unavailable', 'You cannot add your own product to the cart.');
       return;
     }
     this.carts.addItem({ productId: product.id, quantity: this.purchaseQuantity() }).subscribe({

@@ -20,6 +20,7 @@ import com.buy01.orders.dtos.CreateOrderDto;
 import com.buy01.orders.dtos.CreateOrderMessage;
 import com.buy01.orders.dtos.ReturnMessage;
 import com.buy01.orders.dtos.TopProductDto;
+import com.buy01.orders.exception.ForbiddenAction;
 import com.buy01.orders.services.OrderService;
 
 import lombok.RequiredArgsConstructor;
@@ -72,7 +73,7 @@ public class OrderController {
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String userRole,
             @PathVariable("id") String orderId) {
-        ReturnMessage responseMesasge = orderService.cancelOrder(userId, orderId);
+        ReturnMessage responseMesasge = orderService.cancelOrder(userId, userRole, orderId);
         return ResponseEntity.ok(responseMesasge);
     }
 
@@ -92,9 +93,36 @@ public class OrderController {
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String userRole,
             @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+        if (!"CLIENT".equals(userRole)) {
+            throw new ForbiddenAction("Only clients can view client product analytics.");
+        }
 
         List<TopProductDto> response = orderService.getClientBestProducts(userId, limit);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/client/most-buying-products")
+    ResponseEntity<List<TopProductDto>> clientMostBuyingProducts(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Role") String userRole,
+            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+        if (!"CLIENT".equals(userRole)) {
+            throw new ForbiddenAction("Only clients can view client product analytics.");
+        }
+
+        return ResponseEntity.ok(orderService.getClientMostBuyingProducts(userId, limit));
+    }
+
+    @GetMapping("/seller/best-selling-products")
+    ResponseEntity<List<TopProductDto>> sellerBestSellingProducts(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Role") String userRole,
+            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+        if (!"SELLER".equals(userRole)) {
+            throw new ForbiddenAction("Only sellers can view seller product analytics.");
+        }
+
+        return ResponseEntity.ok(orderService.getSellerBestSellingProducts(userId, limit));
     }
 }

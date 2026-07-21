@@ -1,8 +1,9 @@
-import { AsyncPipe, CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { BehaviorSubject, catchError, combineLatest, finalize, map, of, shareReplay, startWith, switchMap } from 'rxjs';
+import { BehaviorSubject, catchError, combineLatest, finalize, map, of, startWith, switchMap } from 'rxjs';
 
 import { ORDER_STATUSES, type Order, type OrderStatus } from '../../core/models/order.models';
 import { OrderService } from '../../core/services/order.service';
@@ -14,7 +15,7 @@ type OrderState = { loading: boolean; orders: Order[]; error: string | null };
 
 @Component({
   standalone: true,
-  imports: [AsyncPipe, CurrencyPipe, DatePipe, ReactiveFormsModule, RouterLink],
+  imports: [CurrencyPipe, DatePipe, ReactiveFormsModule, RouterLink],
   templateUrl: './order-list.component.html',
 })
 export class OrderListComponent {
@@ -28,37 +29,66 @@ export class OrderListComponent {
   readonly view = signal<OrderView>('client');
   readonly actionInProgress = signal<string | null>(null);
   readonly pendingRemoval = signal<Order | null>(null);
+  readonly selectedOrder = signal<Order | null>(null);
+
   readonly filters = this.fb.nonNullable.group({
+    search: [''],
     status: [''],
-    date: [''],
+    dateFrom: [''],
+    dateTo: [''],
   });
 
   private readonly reload$ = new BehaviorSubject<void>(undefined);
-  private readonly filters$ = this.filters.valueChanges.pipe(startWith(this.filters.getRawValue()));
+  private readonly view$ = toObservable(this.view);
+  private readonly filtersValue = toSignal(this.filters.valueChanges.pipe(startWith(this.filters.getRawValue())), {
+    initialValue: this.filters.getRawValue(),
+  });
 
-  readonly state$ = combineLatest([this.reload$, this.filters$]).pipe(
-    switchMap(([, filters]) => {
-      const status = filters.status as OrderStatus | '';
-      const hasFilters = Boolean(status || filters.date);
-      const request$ = this.view() === 'client' && hasFilters
-        ? this.orders.searchOrders({ status: status || undefined, date: filters.date || undefined })
-        : this.view() === 'seller'
-          ? this.orders.getSellerOrders()
-          : this.orders.getClientOrders();
+  private readonly stateSource$ = combineLatest([this.reload$, this.view$]).pipe(
+    switchMap(([, currentView]) => {
+      const request$ = currentView === 'seller' ? this.orders.getSellerOrders() : this.orders.getClientOrders();
 
       return request$.pipe(
         map((orders): OrderState => ({ loading: false, orders, error: null })),
         startWith({ loading: true, orders: [], error: null } as OrderState),
-        catchError((error: Error) => of({ loading: false, orders: [], error: error.message })),
+        catchError((error: Error) =>
+          of({ loading: false, orders: [], error: error.message })
+        )
       );
-    }),
-    shareReplay({ bufferSize: 1, refCount: true }),
+    })
   );
 
-  changeView(view: OrderView) {
-    if (view === 'seller' && !this.canViewSellerOrders()) return;
-    this.view.set(view);
-    this.reload();
+  readonly state = toSignal(this.stateSource$, {
+    initialValue: { loading: true, orders: [], error: null } as OrderState,
+  });
+  readonly filteredOrders = computed(() => {
+    const filters = this.filtersValue();
+    const search = (filters.search ?? '').trim().toLowerCase();
+    const status = filters.status as OrderStatus | '';
+    const from = filters.dateFrom ? this.startOfDay(filters.dateFrom) : null;
+    const to = filters.dateTo ? this.endOfDay(filters.dateTo) : null;
+
+    return this.state().orders.filter((order) => {
+      const orderDate = this.asDate(order.date);
+      const matchesStatus = !status || order.status === status;
+      const matchesFrom = !from || (orderDate && orderDate >= from);
+      const matchesTo = !to || (orderDate && orderDate <= to);
+      const haystack = [
+        order.id,
+        order.clientId,
+        order.firstname,
+        order.lastname,
+        order.phoneNumber,
+        order.address,
+        ...order.products.map((item) => item.productName),
+      ].join(' ').toLowerCase();
+      return matchesStatus && matchesFrom && matchesTo && (!search || haystack.includes(search));
+    });
+  });
+
+  changeView(newView: OrderView) {
+    if (newView === 'seller' && !this.canViewSellerOrders()) return;
+    this.view.set(newView);
   }
 
   applyFilters() {
@@ -66,7 +96,7 @@ export class OrderListComponent {
   }
 
   clearFilters() {
-    this.filters.reset({ status: '', date: '' });
+    this.filters.reset({ search: '', status: '', dateFrom: '', dateTo: '' });
     this.reload();
   }
 
@@ -74,16 +104,30 @@ export class OrderListComponent {
     return this.view() === 'client' && order.status === 'PENDING';
   }
 
+  openDetails(order: Order) {
+    if (this.view() === 'seller') this.selectedOrder.set(order);
+  }
+
+  clientName(order: Order): string {
+    console.log("clientName: ");
+    console.log(`${order.firstname ?? ''} ${order.lastname ?? ''}`.trim() || 'Client');
+    return `${order.firstname ?? ''} ${order.lastname ?? ''}`.trim() || 'Client';
+  }
+
   cancel(order: Order) {
     if (this.actionInProgress()) return;
     this.actionInProgress.set(order.id);
-    this.orders.cancelOrder(order.id).pipe(finalize(() => this.actionInProgress.set(null))).subscribe({
-      next: (response) => {
-        this.toast.show('success', 'Order cancelled', response.message);
-        this.reload();
-      },
-      error: (error: Error) => this.toast.show('error', 'Could not cancel order', error.message),
-    });
+    this.orders
+      .cancelOrder(order.id)
+      .pipe(finalize(() => this.actionInProgress.set(null)))
+      .subscribe({
+        next: (response) => {
+          this.toast.show('success', 'Order cancelled', response.message);
+          this.reload();
+        },
+        error: (error: Error) =>
+          this.toast.show('error', 'Could not cancel order', error.message),
+      });
   }
 
   confirmRemove() {
@@ -91,24 +135,47 @@ export class OrderListComponent {
     if (!order || this.actionInProgress()) return;
 
     this.actionInProgress.set(order.id);
-    this.orders.removeOrder(order.id).pipe(finalize(() => this.actionInProgress.set(null))).subscribe({
-      next: (response) => {
-        this.pendingRemoval.set(null);
-        this.toast.show('success', 'Order removed', response.message);
-        this.reload();
-      },
-      error: (error: Error) => this.toast.show('error', 'Could not remove order', error.message),
-    });
+    this.orders
+      .removeOrder(order.id)
+      .pipe(finalize(() => this.actionInProgress.set(null)))
+      .subscribe({
+        next: (response) => {
+          this.pendingRemoval.set(null);
+          this.toast.show('success', 'Order removed', response.message);
+          this.reload();
+        },
+        error: (error: Error) =>
+          this.toast.show('error', 'Could not remove order', error.message),
+      });
   }
 
   badgeClass(status: OrderStatus): string {
-    return {
-      PENDING: 'text-bg-warning', PROCESSING: 'text-bg-info', SHIPPED: 'text-bg-primary',
-      DELIVERED: 'text-bg-success', CANCELLED: 'text-bg-secondary',
-    }[status];
+    const classes: Record<OrderStatus, string> = {
+      PENDING: 'text-bg-warning',
+      PROCESSING: 'text-bg-info',
+      SHIPPED: 'text-bg-primary',
+      DELIVERED: 'text-bg-success',
+      CANCELLED: 'text-bg-secondary',
+    };
+    return classes[status] || 'text-bg-secondary';
   }
 
   private reload() {
     this.reload$.next();
+  }
+
+  private asDate(value: string): Date | null {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private startOfDay(value: string): Date {
+    const date = new Date(`${value}T00:00:00`);
+    return date;
+  }
+
+  private endOfDay(value: string): Date {
+    const date = new Date(`${value}T23:59:59.999`);
+    return date;
   }
 }

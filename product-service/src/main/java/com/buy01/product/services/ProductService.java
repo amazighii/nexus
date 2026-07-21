@@ -1,8 +1,13 @@
 package com.buy01.product.services;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +28,8 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final KafkaTemplate<String, ProductEvent> kafkaTemplate;
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     public ProductService(ProductRepository productRepository, KafkaTemplate<String, ProductEvent> kafkaTemplate) {
         this.productRepository = productRepository;
@@ -32,6 +39,52 @@ public class ProductService {
     // ── Public ──────────────────────────────────────────────
     public List<ProductResponse> getAllProducts() {
         return productRepository.findAll()
+                .stream().map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<ProductResponse> getProductsByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
+        System.out.println("maxPrice: " + maxPrice + "  minPrice: " + minPrice);
+        System.out.println("db name: " + mongoTemplate.getDb().getName());
+
+        System.out.println("DB: " + mongoTemplate.getDb().getName());
+        System.out.println("Collection count: " +
+                mongoTemplate.getCollection("products").countDocuments());
+        List<Product> products;
+        if (minPrice != null && maxPrice != null) {
+            if (minPrice.compareTo(maxPrice) > 0) {
+                throw new IllegalArgumentException("Minimum price cannot be greater than maximum price.");
+            }
+            // products =
+            // productRepository.findByPriceGreaterThanEqualAndPriceLessThanEqual(minPrice,
+            // maxPrice);
+            products = test(minPrice, maxPrice);
+        } else if (minPrice != null) {
+            products = productRepository.findByPriceGreaterThanEqual(minPrice);
+        } else if (maxPrice != null) {
+            products = productRepository.findByPriceLessThanEqual(maxPrice);
+        } else {
+            products = productRepository.findAll();
+        }
+
+        return products.stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    private List<Product> test(BigDecimal min, BigDecimal max) {
+        Query query = new Query();
+        query.addCriteria(
+                Criteria.where("price")
+                        .gte(min)
+                        .lte(max));
+
+        return mongoTemplate.find(query, Product.class);
+    }
+
+    public List<ProductResponse> searchProductsByName(String searchTerm) {
+        if (searchTerm == null || searchTerm.isBlank()) {
+            return getAllProducts();
+        }
+        return productRepository.findByNameContainingIgnoreCase(searchTerm.trim())
                 .stream().map(this::toResponse)
                 .collect(Collectors.toList());
     }

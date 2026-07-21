@@ -89,10 +89,10 @@ public class OrderService {
         orders.forEach(order -> {
             ClientOrderDto clientOrderDto = new ClientOrderDto(
                     order.getId(),
-                    // order.getFirstname(),
-                    // order.getLastname(),
-                    // order.getPhoneNumber(),
-                    // order.getAddress(),
+                    order.getFirstname(),
+                    order.getLastname(),
+                    order.getPhoneNumber(),
+                    order.getAddress(),
                     order.getClientId(),
                     order.getStatus().toString(),
                     order.getTotalPrice(),
@@ -123,6 +123,9 @@ public class OrderService {
             ProductRef productRef = productRefRepository
                     .findByProductId(productOrder.getProductId())
                     .orElseThrow(() -> new BadRequest("Product not found"));
+            if (userId.equals(productRef.getSellerId())) {
+                throw new BadRequest("Sellers cannot purchase their own products.");
+            }
 
             BigDecimal productPrice = productRef.getPrice().multiply(BigDecimal.valueOf(productOrder.getQuantity()));
 
@@ -186,8 +189,12 @@ public class OrderService {
         return new ReturnMessage("Order removed successfully");
     }
 
-    public ReturnMessage cancelOrder(String userId, String orderId) {
+    public ReturnMessage cancelOrder(String userId, String userRole, String orderId) {
         System.out.println("Cancelling order with ID: " + orderId + " for user: " + userId);
+
+        if (!"CLIENT".equals(userRole)) {
+            throw new ForbiddenAction("Only clients can cancel orders.");
+        }
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFound());
@@ -242,8 +249,15 @@ public class OrderService {
     }
 
     public List<TopProductDto> getClientBestProducts(String clientId, Long limit) {
+        return aggregateClientProducts(clientId, limit, "totalSpent");
+    }
 
-        // Safely calculates (price * quantity) even if price is string or null
+    public List<TopProductDto> getClientMostBuyingProducts(String clientId, Long limit) {
+        return aggregateClientProducts(clientId, limit, "totalQuantity");
+    }
+
+    public List<TopProductDto> getSellerBestSellingProducts(String sellerId, Long limit) {
+
         AggregationExpression calculateItemTotal = new AggregationExpression() {
             @Override
             public Document toDocument(AggregationOperationContext context) {
@@ -254,24 +268,20 @@ public class OrderService {
         };
 
         Aggregation aggregation = Aggregation.newAggregation(
-                // 1. Filter ACTIVE + DELIVERED orders for this client
                 Aggregation.match(
-                        Criteria.where("client_id").is(clientId)
-                                .and("is_removed").is(false)
-                                .and("status").is(OrderStatus.DELIVERED.name()) // <--- Only completed/delivered orders
-                ),
+                        Criteria.where("is_removed").is(false)
+                                .and("status").is(OrderStatus.DELIVERED.name())
+                                .and("products.sellerId").is(sellerId)),
 
-                // 2. Unwind the products array
                 Aggregation.unwind("products"),
+                Aggregation.match(Criteria.where("products.sellerId").is(sellerId)),
 
-                // 3. Group by products._id and sum quantities + total spent
                 Aggregation.group("products._id")
                         .first("products.productName").as("productName")
                         .first("products.imageUrl").as("imageUrl")
                         .sum("products.quantity").as("totalQuantity")
-                        .sum(calculateItemTotal).as("totalSpent"), // <--- Calculates money spent
+                        .sum(calculateItemTotal).as("totalSpent"),
 
-                // 4. Project fields into DTO structure (_id -> productId)
                 Aggregation.project()
                         .and("_id").as("productId")
                         .and("productName").as("productName")
@@ -279,8 +289,7 @@ public class OrderService {
                         .and("totalQuantity").as("totalQuantity")
                         .and("totalSpent").as("totalSpent"),
 
-                // 5. Sort by highest quantity purchased and limit
-                Aggregation.sort(Sort.Direction.DESC, "totalQuantity"),
+                Aggregation.sort(Sort.Direction.DESC, "totalSpent"),
                 Aggregation.limit(limit));
 
         AggregationResults<TopProductDto> results = mongoTemplate.aggregate(
@@ -289,6 +298,39 @@ public class OrderService {
                 TopProductDto.class);
 
         return results.getMappedResults();
+    }
+
+    private List<TopProductDto> aggregateClientProducts(String clientId, Long limit, String sortField) {
+        AggregationExpression calculateItemTotal = new AggregationExpression() {
+            @Override
+            public Document toDocument(AggregationOperationContext context) {
+                return new Document("$multiply", Arrays.asList(
+                        new Document("$toDouble", new Document("$ifNull", Arrays.asList("$products.price", 0.0))),
+                        "$products.quantity"));
+            }
+        };
+
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(
+                        Criteria.where("client_id").is(clientId)
+                                .and("is_removed").is(false)
+                                .and("status").is(OrderStatus.DELIVERED.name())),
+                Aggregation.unwind("products"),
+                Aggregation.group("products._id")
+                        .first("products.productName").as("productName")
+                        .first("products.imageUrl").as("imageUrl")
+                        .sum("products.quantity").as("totalQuantity")
+                        .sum(calculateItemTotal).as("totalSpent"),
+                Aggregation.project()
+                        .and("_id").as("productId")
+                        .and("productName").as("productName")
+                        .and("imageUrl").as("imageUrl")
+                        .and("totalQuantity").as("totalQuantity")
+                        .and("totalSpent").as("totalSpent"),
+                Aggregation.sort(Sort.Direction.DESC, sortField),
+                Aggregation.limit(limit));
+
+        return mongoTemplate.aggregate(aggregation, Order.class, TopProductDto.class).getMappedResults();
     }
 
 }

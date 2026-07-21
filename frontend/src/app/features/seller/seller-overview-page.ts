@@ -1,8 +1,9 @@
+import { CurrencyPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { ProductsService } from '../../core/services/products.service';
-import type { ProductResponse } from '../../core/models/product.models';
+import type { ProductAnalytics, ProductResponse } from '../../core/models/product.models';
 import { SessionStore } from '../../core/state/session.store';
 import { SpinnerComponent } from '../../shared/components/spinner/spinner.component';
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
@@ -10,7 +11,7 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
 
 @Component({
   standalone: true,
-  imports: [RouterLink, SpinnerComponent, ErrorStateComponent],
+  imports: [RouterLink, CurrencyPipe, SpinnerComponent, ErrorStateComponent],
   template: `
     <div class="surface page">
       <div class="top">
@@ -35,6 +36,38 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
             <div class="muted">Total images</div>
             <div class="num">{{ totalImages() }}</div>
           </div>
+          <div class="card">
+            <div class="muted">Top product revenue</div>
+            <div class="num">{{ topRevenue() | currency : 'USD' : 'symbol' : '1.2-2' }}</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Best selling products</h2>
+          @if (analyticsError()) {
+            <p class="muted">{{ analyticsError() }}</p>
+          } @else if (bestSellers().length === 0) {
+            <p class="muted">Revenue appears here after delivered orders.</p>
+          } @else {
+            <div class="list">
+              @for (row of bestSellers(); track row.productId) {
+                <div class="item">
+                  <div class="analytics-product">
+                    @if (row.imageUrl) {
+                      <img class="thumb" [src]="row.imageUrl" [alt]="row.productName" />
+                    } @else {
+                      <div class="thumb thumb--empty">No image</div>
+                    }
+                    <div>
+                      <div class="name">{{ row.productName }}</div>
+                      <span class="badge">{{ row.totalQuantity }} sold</span>
+                    </div>
+                  </div>
+                  <strong>{{ row.totalSpent | currency : 'USD' : 'symbol' : '1.2-2' }}</strong>
+                </div>
+              }
+            </div>
+          }
         </div>
 
         <div class="section">
@@ -106,6 +139,9 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
         border-radius: 14px;
         background: var(--surface-2);
       }
+      .cards {
+        grid-template-columns: repeat(3, 1fr);
+      }
       .num {
         margin-top: 8px;
         font-size: 24px;
@@ -132,6 +168,38 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
         justify-content: space-between;
         gap: 12px;
       }
+      .analytics-product {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .thumb {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        object-fit: cover;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        flex: 0 0 auto;
+      }
+      .thumb--empty {
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-size: 10px;
+        text-align: center;
+      }
+      .badge {
+        display: inline-flex;
+        margin-top: 4px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        background: rgba(15, 118, 110, 0.1);
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 650;
+      }
       .name {
         font-weight: 650;
         min-width: 0;
@@ -155,12 +223,15 @@ export class SellerOverviewPage {
   private readonly session = inject(SessionStore);
 
   readonly products = signal<ProductResponse[]>([]);
+  readonly bestSellers = signal<ProductAnalytics[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly analyticsError = signal<string | null>(null);
 
   readonly myProducts = computed(() => this.products().filter((p) => p.sellerId === this.session.userId()));
   readonly totalImages = computed(() => this.myProducts().reduce((acc, p) => acc + (p.imageUrls?.length ?? 0), 0));
   readonly recent = computed(() => this.myProducts().slice(0, 5));
+  readonly topRevenue = computed(() => this.bestSellers()[0]?.totalSpent ?? 0);
 
   constructor() {
     void this.load();
@@ -170,7 +241,15 @@ export class SellerOverviewPage {
     try {
       this.loading.set(true);
       this.error.set(null);
-      this.products.set(await this.productsService.list());
+      const [products, bestSellers] = await Promise.all([
+        this.productsService.list(),
+        this.productsService.sellerBestSellingProducts(5).catch((e) => {
+          this.analyticsError.set(extractApiErrorMessage(e, 'Could not load seller analytics.'));
+          return [];
+        }),
+      ]);
+      this.products.set(products);
+      this.bestSellers.set(bestSellers);
     } catch (e) {
       this.error.set(extractApiErrorMessage(e, 'Could not fetch products.'));
     } finally {

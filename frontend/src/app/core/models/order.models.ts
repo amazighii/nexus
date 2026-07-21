@@ -14,6 +14,10 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
+  firstname?: string;
+  lastname?: string;
+  phoneNumber?: string;
+  address?: string;
   clientId: string;
   status: OrderStatus;
   totalPrice: number;

@@ -12,13 +12,13 @@ import lombok.Data;
 public class ClientOrderDto {
     String id;
 
-    // String firstname;
+    String firstname;
 
-    // String lastname;
+    String lastname;
 
-    // String phoneNumber;
+    String phoneNumber;
 
-    // String address;
+    String address;
 
     String clientId;
 

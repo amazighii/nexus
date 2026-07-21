@@ -33,6 +33,9 @@ public class CartService {
         ObjectId clientId = asObjectId(authenticatedClientId);
         Product product = products.findById(request.getProductId())
                 .orElseThrow(() -> new ProductNotFoundException("Product not found."));
+        if (clientId.toHexString().equals(product.getSellerId())) {
+            throw new IllegalArgumentException("Sellers cannot purchase their own products.");
+        }
 
         Cart cart = carts.findByClientId(clientId).orElseGet(() -> {
             Cart newCart = new Cart();

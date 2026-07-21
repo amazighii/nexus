@@ -4,6 +4,7 @@ import com.buy01.product.dtos.ProductRequest;
 import com.buy01.product.dtos.ProductResponse;
 import com.buy01.product.dtos.CartItemRequest;
 import com.buy01.product.dtos.CartResponse;
+import com.buy01.product.dtos.TopProductDto;
 import com.buy01.product.services.CartService;
 import com.buy01.product.services.ProductService;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/products")
@@ -22,6 +24,7 @@ public class ProductController {
 
     private final ProductService productService;
     private final CartService cartService;
+    private final ProductAnalyticsClient analyticsClient;
 
     @GetMapping("/cart")
     public ResponseEntity<CartResponse> getCart(Authentication auth) {
@@ -41,8 +44,36 @@ public class ProductController {
 
     // ── Public ──────────────────────────────────────────────
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> getAllProducts() {
-        return ResponseEntity.ok(productService.getAllProducts());
+    public ResponseEntity<List<ProductResponse>> getAllProducts(
+            @RequestParam(value = "min-price", required = false) BigDecimal minPrice,
+            @RequestParam(value = "max-price", required = false) BigDecimal maxPrice) {
+        return ResponseEntity.ok(productService.getProductsByPriceRange(minPrice, maxPrice));
+    }
+
+    @GetMapping("/name")
+    public ResponseEntity<List<ProductResponse>> searchProductsByName(@RequestParam("q") String searchTerm) {
+        return ResponseEntity.ok(productService.searchProductsByName(searchTerm));
+    }
+
+    @GetMapping("/client/most-buying-products")
+    public ResponseEntity<List<TopProductDto>> clientMostBuyingProducts(
+            Authentication auth,
+            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+        return ResponseEntity.ok(analyticsClient.clientMostBuyingProducts(auth.getName(), "CLIENT", limit));
+    }
+
+    @GetMapping("/client/best-products")
+    public ResponseEntity<List<TopProductDto>> clientBestProducts(
+            Authentication auth,
+            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+        return ResponseEntity.ok(analyticsClient.clientBestProducts(auth.getName(), "CLIENT", limit));
+    }
+
+    @GetMapping("/seller/best-selling-products")
+    public ResponseEntity<List<TopProductDto>> sellerBestSellingProducts(
+            Authentication auth,
+            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+        return ResponseEntity.ok(analyticsClient.sellerBestSellingProducts(auth.getName(), "SELLER", limit));
     }
 
     @GetMapping("/{id}")

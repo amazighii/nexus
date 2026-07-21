@@ -17,3 +17,11 @@ export interface ProductRequest {
   quantity: number;
   imageUrls: string[];
 }
+
+export interface ProductAnalytics {
+  productId: string;
+  productName: string;
+  totalQuantity: number;
+  totalSpent: number;
+  imageUrl?: string;
+}

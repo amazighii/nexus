@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import lombok.Data;
 import lombok.Getter;
@@ -24,10 +26,13 @@ public class Product {
     private String id;
     private String name;
     private String description;
+
+    @Field(targetType = FieldType.DECIMAL128)
     private BigDecimal price;
+
     private long quantity;
     // To check later with Media
-    private List<String> imageUrls; // set later via Media Service 
+    private List<String> imageUrls; // set later via Media Service
     private String sellerId; // reference to User ID of the seller
     private Instant createdAt;
     private Instant updatedAt;

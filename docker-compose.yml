@@ -207,7 +207,7 @@ services:
 
   orders-service:
     build:
-      context: ./orders-service
+      context: ./order-service
       dockerfile: Dockerfile
     container_name: orders-service
     restart: unless-stopped

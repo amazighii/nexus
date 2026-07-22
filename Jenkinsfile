@@ -81,10 +81,6 @@ pipeline {
         always {
             echo 'Processing and archiving all test results...'
 
-            step([$class: 'GitHubCommitStatusSetter',
-                  contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'jenkins-ci'],
-                  statusResultSource: [$class: 'DefaultStatusResultSource']])
-
             junit testResults: '**/target/surefire-reports/*.xml, **/frontend/junit-frontend.xml',
                   allowEmptyResults: true
         }

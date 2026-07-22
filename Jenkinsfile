@@ -43,8 +43,8 @@ pipeline {
             steps {
                 withSonarQubeEnv('MySonarServer') {
                     sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-  -Dsonar.projectKey=buy01 \
-  -Dsonar.projectName=buy01 '
+  -Dsonar.projectKey=buy02 \
+  -Dsonar.projectName=buy02 '
                 }
             }
         }

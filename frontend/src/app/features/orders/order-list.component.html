@@ -23,11 +23,6 @@
 
   <form class="card card-body mb-4" [formGroup]="filters" (ngSubmit)="applyFilters()">
     <div class="row g-3 align-items-end">
-      <div class="col-12 col-lg-3">
-        <label class="form-label" for="search">Search</label>
-        <input id="search" class="form-control" type="search" placeholder="Order, client, product"
-          formControlName="search" />
-      </div>
       <div class="col-12 col-sm-5 col-lg-4">
         <label class="form-label" for="status">Status</label>
         <select id="status" class="form-select" formControlName="status">

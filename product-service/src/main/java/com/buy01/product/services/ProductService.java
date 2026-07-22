@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.bson.types.Decimal128;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -21,7 +22,7 @@ import com.buy01.product.models.EventType;
 import com.buy01.product.models.Product;
 import com.buy01.product.repositories.ProductRepository;
 
-// import lombok.RequiredArgsConstructor;
+
 
 @Service
 public class ProductService {
@@ -55,10 +56,9 @@ public class ProductService {
             if (minPrice.compareTo(maxPrice) > 0) {
                 throw new IllegalArgumentException("Minimum price cannot be greater than maximum price.");
             }
-            // products =
-            // productRepository.findByPriceGreaterThanEqualAndPriceLessThanEqual(minPrice,
-            // maxPrice);
-            products = test(minPrice, maxPrice);
+
+            products = productRepository.findByPriceBetween(minPrice, maxPrice);
+            products = findByPriceBetweenMinAndMax(minPrice, maxPrice);
         } else if (minPrice != null) {
             products = productRepository.findByPriceGreaterThanEqual(minPrice);
         } else if (maxPrice != null) {
@@ -70,14 +70,17 @@ public class ProductService {
         return products.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    private List<Product> test(BigDecimal min, BigDecimal max) {
+    private List<Product> findByPriceBetweenMinAndMax(BigDecimal min, BigDecimal max) {
         Query query = new Query();
+
         query.addCriteria(
                 Criteria.where("price")
-                        .gte(min)
-                        .lte(max));
+                        .gte(new Decimal128(min))
+                        .lte(new Decimal128(max)));
 
-        return mongoTemplate.find(query, Product.class);
+        List<Product> result = mongoTemplate.find(query, Product.class);
+
+        return result;
     }
 
     public List<ProductResponse> searchProductsByName(String searchTerm) {

@@ -4,7 +4,6 @@
       <h1 class="h3 mb-1">Order management</h1>
       <p class="text-body-secondary mb-0">Review your purchases and received orders.</p>
     </div>
-    <a class="btn btn-primary" routerLink="/orders/new">Place an order</a>
   </div>
 
   <ul class="nav nav-tabs mb-3" aria-label="Order view">
@@ -39,12 +38,8 @@
         </select>
       </div>
       <div class="col-12 col-sm-6 col-lg-2">
-        <label class="form-label" for="dateFrom">From</label>
-        <input id="dateFrom" class="form-control" type="date" formControlName="dateFrom" />
-      </div>
-      <div class="col-12 col-sm-6 col-lg-2">
-        <label class="form-label" for="dateTo">To</label>
-        <input id="dateTo" class="form-control" type="date" formControlName="dateTo" />
+        <label class="form-label" for="date">Order date</label>
+        <input id="date" class="form-control" type="date" formControlName="date" />
       </div>
       <div class="col-12 col-sm-auto d-flex gap-2">
         <button class="btn btn-primary" type="submit">Filter</button>

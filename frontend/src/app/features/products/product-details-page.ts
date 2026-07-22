@@ -279,7 +279,7 @@ export class ProductDetailsPage {
       this.toast.show('info', 'Unavailable', 'You cannot buy your own product.');
       return;
     }
-    await this.router.navigate(['/orders/new'], { queryParams: { productId: product.id, quantity: this.purchaseQuantity() } });
+    await this.router.navigate(['/orders/checkout'], { queryParams: { productId: product.id, quantity: this.purchaseQuantity() } });
   }
 
   addToCart() {

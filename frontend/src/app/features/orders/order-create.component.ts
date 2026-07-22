@@ -25,7 +25,7 @@ export class OrderCreateComponent {
   readonly saving = signal(false);
   readonly submitError = signal<string | null>(null);
   readonly checkoutItems = signal<CartItem[]>([]);
-  readonly checkoutSource = signal<'manual' | 'buy-now' | 'cart'>('manual');
+  readonly checkoutSource = signal<'buy-now' | 'cart' | null>(null);
   readonly form = this.fb.nonNullable.group({
     firstname: ['', [Validators.required, Validators.maxLength(100)]],
     lastname: ['', [Validators.required, Validators.maxLength(100)]],
@@ -59,15 +59,10 @@ export class OrderCreateComponent {
         },
         error: (error: Error) => this.submitError.set(error.message),
       });
+    } else {
+      this.submitError.set('Choose a product or cart before checking out.');
+      void this.router.navigateByUrl('/products');
     }
-  }
-
-  addItem() {
-    this.items.push(this.createItem());
-  }
-
-  removeItem(index: number) {
-    if (this.items.length > 1) this.items.removeAt(index);
   }
 
   submit() {

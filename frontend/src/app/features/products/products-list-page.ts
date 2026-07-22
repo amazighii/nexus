@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { CurrencyPipe } from '@angular/common';
 
 import { ProductsService } from '../../core/services/products.service';
-import type { ProductResponse } from '../../core/models/product.models';
+import type { ProductResponse, ProductSortOption } from '../../core/models/product.models';
 import { SpinnerComponent } from '../../shared/components/spinner/spinner.component';
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
@@ -35,6 +35,17 @@ import { SessionStore } from '../../core/state/session.store';
         <div class="field">
           <label for="maxPrice">Max price</label>
           <input id="maxPrice" class="form-control" type="number" min="0" step="1" formControlName="maxPrice" />
+        </div>
+        <div class="field">
+          <label for="sort">Sort</label>
+          <select id="sort" class="form-control" formControlName="sort">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="name_asc">Name: A to Z</option>
+            <option value="name_desc">Name: Z to A</option>
+          </select>
         </div>
         <div class="actions">
           <button class="btn btn-primary" type="submit">Filter</button>
@@ -89,7 +100,7 @@ import { SessionStore } from '../../core/state/session.store';
         margin-bottom: 18px;
         padding: 14px;
         display: grid;
-        grid-template-columns: 2fr 1fr 1fr auto;
+        grid-template-columns: 2fr 1fr 1fr 1.2fr auto;
         gap: 12px;
         align-items: end;
       }
@@ -221,6 +232,7 @@ export class ProductsListPage {
     q: [''],
     minPrice: [''],
     maxPrice: [''],
+    sort: ['newest' as ProductSortOption],
   });
   readonly currentUserId = computed(() => this.session.userId());
 
@@ -236,7 +248,7 @@ export class ProductsListPage {
     try {
       this.loading.set(true);
       this.error.set(null);
-      this.products.set(await this.productsService.list());
+      this.products.set(await this.productsService.list({ sort: this.filters.controls.sort.value }));
     } catch (e) {
       this.error.set(extractApiErrorMessage(e, 'Could not load products.'));
     } finally {
@@ -260,15 +272,13 @@ export class ProductsListPage {
     try {
       this.loading.set(true);
       this.error.set(null);
-      const byPrice = await this.productsService.list({ minPrice, maxPrice });
+      const byPrice = await this.productsService.list({ minPrice, maxPrice, sort: filters.sort as ProductSortOption });
       const q = filters.q.trim();
       if (!q) {
         this.products.set(byPrice);
         return;
       }
-      const ids = new Set(byPrice.map((product) => product.id));
-      const byName = await this.productsService.searchByName(q);
-      this.products.set(byName.filter((product) => ids.has(product.id)));
+      this.products.set(byPrice.filter((product) => product.name.toLowerCase().includes(q.toLowerCase())));
     } catch (e) {
       this.error.set(extractApiErrorMessage(e, 'Could not filter products.'));
     } finally {
@@ -277,7 +287,7 @@ export class ProductsListPage {
   }
 
   clearFilters() {
-    this.filters.reset({ q: '', minPrice: '', maxPrice: '' });
+    this.filters.reset({ q: '', minPrice: '', maxPrice: '', sort: 'newest' });
     void this.load();
   }
 
@@ -294,7 +304,7 @@ export class ProductsListPage {
       this.toast.show('info', 'Unavailable', 'You cannot buy your own product.');
       return;
     }
-    await this.router.navigate(['/orders/new'], { queryParams: { productId: product.id, quantity: 1 } });
+    await this.router.navigate(['/orders/checkout'], { queryParams: { productId: product.id, quantity: 1 } });
   }
 
   addToCart(product: ProductResponse) {

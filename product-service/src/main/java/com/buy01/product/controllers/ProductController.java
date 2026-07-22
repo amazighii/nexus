@@ -4,7 +4,6 @@ import com.buy01.product.dtos.ProductRequest;
 import com.buy01.product.dtos.ProductResponse;
 import com.buy01.product.dtos.CartItemRequest;
 import com.buy01.product.dtos.CartResponse;
-import com.buy01.product.dtos.TopProductDto;
 import com.buy01.product.services.CartService;
 import com.buy01.product.services.ProductService;
 import jakarta.validation.Valid;
@@ -24,7 +23,6 @@ public class ProductController {
 
     private final ProductService productService;
     private final CartService cartService;
-    private final ProductAnalyticsClient analyticsClient;
 
     @GetMapping("/cart")
     public ResponseEntity<CartResponse> getCart(Authentication auth) {
@@ -46,34 +44,14 @@ public class ProductController {
     @GetMapping
     public ResponseEntity<List<ProductResponse>> getAllProducts(
             @RequestParam(value = "min-price", required = false) BigDecimal minPrice,
-            @RequestParam(value = "max-price", required = false) BigDecimal maxPrice) {
-        return ResponseEntity.ok(productService.getProductsByPriceRange(minPrice, maxPrice));
+            @RequestParam(value = "max-price", required = false) BigDecimal maxPrice,
+            @RequestParam(value = "sort", required = false, defaultValue = "newest") String sort) {
+        return ResponseEntity.ok(productService.getProducts(minPrice, maxPrice, sort));
     }
 
     @GetMapping("/name")
     public ResponseEntity<List<ProductResponse>> searchProductsByName(@RequestParam("q") String searchTerm) {
         return ResponseEntity.ok(productService.searchProductsByName(searchTerm));
-    }
-
-    @GetMapping("/client/most-buying-products")
-    public ResponseEntity<List<TopProductDto>> clientMostBuyingProducts(
-            Authentication auth,
-            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
-        return ResponseEntity.ok(analyticsClient.clientMostBuyingProducts(auth.getName(), "CLIENT", limit));
-    }
-
-    @GetMapping("/client/best-products")
-    public ResponseEntity<List<TopProductDto>> clientBestProducts(
-            Authentication auth,
-            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
-        return ResponseEntity.ok(analyticsClient.clientBestProducts(auth.getName(), "CLIENT", limit));
-    }
-
-    @GetMapping("/seller/best-selling-products")
-    public ResponseEntity<List<TopProductDto>> sellerBestSellingProducts(
-            Authentication auth,
-            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
-        return ResponseEntity.ok(analyticsClient.sellerBestSellingProducts(auth.getName(), "SELLER", limit));
     }
 
     @GetMapping("/{id}")
@@ -88,7 +66,6 @@ public class ProductController {
             Authentication auth) {
 
         String sellerId = auth.getName(); // userId from JWT
-        System.out.println("\nCreating product for sellerId: " + sellerId + "\n");
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(productService.createProduct(request, sellerId));
     }

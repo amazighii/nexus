@@ -18,10 +18,4 @@ export interface ProductRequest {
   imageUrls: string[];
 }
 
-export interface ProductAnalytics {
-  productId: string;
-  productName: string;
-  totalQuantity: number;
-  totalSpent: number;
-  imageUrl?: string;
-}
+export type ProductSortOption = 'price_asc' | 'price_desc' | 'name_asc' | 'name_desc' | 'newest' | 'oldest';

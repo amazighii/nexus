@@ -1,9 +1,8 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { BehaviorSubject, catchError, combineLatest, finalize, map, of, startWith, switchMap } from 'rxjs';
+import { BehaviorSubject, catchError, combineLatest, distinctUntilChanged, finalize, map, of, startWith, switchMap } from 'rxjs';
 
 import { ORDER_STATUSES, type Order, type OrderStatus } from '../../core/models/order.models';
 import { OrderService } from '../../core/services/order.service';
@@ -15,7 +14,7 @@ type OrderState = { loading: boolean; orders: Order[]; error: string | null };
 
 @Component({
   standalone: true,
-  imports: [CurrencyPipe, DatePipe, ReactiveFormsModule, RouterLink],
+  imports: [CurrencyPipe, ReactiveFormsModule],
   templateUrl: './order-list.component.html',
 })
 export class OrderListComponent {
@@ -34,8 +33,7 @@ export class OrderListComponent {
   readonly filters = this.fb.nonNullable.group({
     search: [''],
     status: [''],
-    dateFrom: [''],
-    dateTo: [''],
+    date: [''],
   });
 
   private readonly reload$ = new BehaviorSubject<void>(undefined);
@@ -44,9 +42,23 @@ export class OrderListComponent {
     initialValue: this.filters.getRawValue(),
   });
 
-  private readonly stateSource$ = combineLatest([this.reload$, this.view$]).pipe(
-    switchMap(([, currentView]) => {
-      const request$ = currentView === 'seller' ? this.orders.getSellerOrders() : this.orders.getClientOrders();
+  private readonly serverFilters$ = this.filters.valueChanges.pipe(
+    startWith(this.filters.getRawValue()),
+    map((filters) => ({
+      status: filters.status as OrderStatus | '',
+      date: filters.date ?? '',
+    })),
+    distinctUntilChanged((a, b) => a.status === b.status && a.date === b.date),
+  );
+
+  private readonly stateSource$ = combineLatest([this.reload$, this.view$, this.serverFilters$]).pipe(
+    switchMap(([, currentView, filters]) => {
+      const hasServerFilters = Boolean(filters.status || filters.date);
+      const request$ = hasServerFilters
+        ? this.orders.searchOrders({ status: filters.status || undefined, date: filters.date || undefined, view: currentView })
+        : currentView === 'seller'
+          ? this.orders.getSellerOrders()
+          : this.orders.getClientOrders();
 
       return request$.pipe(
         map((orders): OrderState => ({ loading: false, orders, error: null })),
@@ -64,15 +76,8 @@ export class OrderListComponent {
   readonly filteredOrders = computed(() => {
     const filters = this.filtersValue();
     const search = (filters.search ?? '').trim().toLowerCase();
-    const status = filters.status as OrderStatus | '';
-    const from = filters.dateFrom ? this.startOfDay(filters.dateFrom) : null;
-    const to = filters.dateTo ? this.endOfDay(filters.dateTo) : null;
 
     return this.state().orders.filter((order) => {
-      const orderDate = this.asDate(order.date);
-      const matchesStatus = !status || order.status === status;
-      const matchesFrom = !from || (orderDate && orderDate >= from);
-      const matchesTo = !to || (orderDate && orderDate <= to);
       const haystack = [
         order.id,
         order.clientId,
@@ -82,7 +87,7 @@ export class OrderListComponent {
         order.address,
         ...order.products.map((item) => item.productName),
       ].join(' ').toLowerCase();
-      return matchesStatus && matchesFrom && matchesTo && (!search || haystack.includes(search));
+      return !search || haystack.includes(search);
     });
   });
 
@@ -96,7 +101,7 @@ export class OrderListComponent {
   }
 
   clearFilters() {
-    this.filters.reset({ search: '', status: '', dateFrom: '', dateTo: '' });
+    this.filters.reset({ search: '', status: '', date: '' });
     this.reload();
   }
 
@@ -109,8 +114,6 @@ export class OrderListComponent {
   }
 
   clientName(order: Order): string {
-    console.log("clientName: ");
-    console.log(`${order.firstname ?? ''} ${order.lastname ?? ''}`.trim() || 'Client');
     return `${order.firstname ?? ''} ${order.lastname ?? ''}`.trim() || 'Client';
   }
 
@@ -162,20 +165,5 @@ export class OrderListComponent {
 
   private reload() {
     this.reload$.next();
-  }
-
-  private asDate(value: string): Date | null {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  private startOfDay(value: string): Date {
-    const date = new Date(`${value}T00:00:00`);
-    return date;
-  }
-
-  private endOfDay(value: string): Date {
-    const date = new Date(`${value}T23:59:59.999`);
-    return date;
   }
 }

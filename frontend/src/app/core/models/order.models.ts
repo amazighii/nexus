@@ -30,6 +30,7 @@ export interface OrderSearchParams {
   status?: OrderStatus;
   /** ISO calendar date (`yyyy-MM-dd`) expected by the Orders API. */
   date?: string;
+  view?: 'client' | 'seller';
 }
 
 export interface OrderProductRequest {
@@ -48,4 +49,23 @@ export interface CreateOrderRequest {
 
 export interface OrderMessage {
   message: string;
+}
+
+export interface OrderProductAnalytics {
+  productId: string;
+  productName: string;
+  totalQuantity: number;
+  totalSpent: number;
+  imageUrl?: string;
+}
+
+export interface AnalyticsPoint {
+  label: string;
+  value: number;
+}
+
+export interface DashboardAnalytics {
+  totalAmount: number;
+  topProducts: OrderProductAnalytics[];
+  history: AnalyticsPoint[];
 }

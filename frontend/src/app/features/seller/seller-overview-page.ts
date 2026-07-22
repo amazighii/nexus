@@ -3,7 +3,9 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { ProductsService } from '../../core/services/products.service';
-import type { ProductAnalytics, ProductResponse } from '../../core/models/product.models';
+import type { ProductResponse } from '../../core/models/product.models';
+import type { DashboardAnalytics, OrderProductAnalytics } from '../../core/models/order.models';
+import { OrderService } from '../../core/services/order.service';
 import { SessionStore } from '../../core/state/session.store';
 import { SpinnerComponent } from '../../shared/components/spinner/spinner.component';
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
@@ -37,13 +39,30 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
             <div class="num">{{ totalImages() }}</div>
           </div>
           <div class="card">
-            <div class="muted">Top product revenue</div>
-            <div class="num">{{ topRevenue() | currency : 'USD' : 'symbol' : '1.2-2' }}</div>
+            <div class="muted">Total revenue</div>
+            <div class="num">{{ dashboard()?.totalAmount ?? 0 | currency : 'USD' : 'symbol' : '1.2-2' }}</div>
           </div>
         </div>
 
         <div class="section">
-          <h2>Best selling products</h2>
+          <h2>Revenue</h2>
+          @if (dashboard()?.history?.length) {
+            <div class="bars chart">
+              @for (point of dashboard()?.history ?? []; track point.label) {
+                <div class="bar-row">
+                  <span class="bar-label">{{ point.label }}</span>
+                  <div class="bar-track"><span class="bar-fill" [style.width.%]="barWidth(point.value, maxHistoryValue())"></span></div>
+                  <strong>{{ point.value | currency : 'USD' : 'symbol' : '1.0-0' }}</strong>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="muted">Revenue history appears after delivered orders.</p>
+          }
+        </div>
+
+        <div class="section">
+          <h2>Product sales</h2>
           @if (analyticsError()) {
             <p class="muted">{{ analyticsError() }}</p>
           } @else if (bestSellers().length === 0) {
@@ -65,6 +84,7 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
                   </div>
                   <strong>{{ row.totalSpent | currency : 'USD' : 'symbol' : '1.2-2' }}</strong>
                 </div>
+                <div class="bar-track product-track"><span class="bar-fill" [style.width.%]="barWidth(row.totalQuantity, maxProductQuantity())"></span></div>
               }
             </div>
           }
@@ -168,6 +188,36 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
         justify-content: space-between;
         gap: 12px;
       }
+      .chart {
+        margin-top: 10px;
+      }
+      .bar-row {
+        display: grid;
+        grid-template-columns: minmax(88px, 120px) 1fr minmax(74px, auto);
+        gap: 10px;
+        align-items: center;
+        padding: 8px 0;
+      }
+      .bar-label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .bar-track {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(15, 118, 110, 0.1);
+        overflow: hidden;
+      }
+      .bar-fill {
+        display: block;
+        height: 100%;
+        min-width: 5px;
+        border-radius: inherit;
+        background: var(--primary);
+      }
+      .product-track {
+        margin: -2px 12px 8px 66px;
+      }
       .analytics-product {
         display: flex;
         align-items: center;
@@ -220,10 +270,12 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
 })
 export class SellerOverviewPage {
   private readonly productsService = inject(ProductsService);
+  private readonly orderService = inject(OrderService);
   private readonly session = inject(SessionStore);
 
   readonly products = signal<ProductResponse[]>([]);
-  readonly bestSellers = signal<ProductAnalytics[]>([]);
+  readonly dashboard = signal<DashboardAnalytics | null>(null);
+  readonly bestSellers = signal<OrderProductAnalytics[]>([]);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly analyticsError = signal<string | null>(null);
@@ -231,7 +283,8 @@ export class SellerOverviewPage {
   readonly myProducts = computed(() => this.products().filter((p) => p.sellerId === this.session.userId()));
   readonly totalImages = computed(() => this.myProducts().reduce((acc, p) => acc + (p.imageUrls?.length ?? 0), 0));
   readonly recent = computed(() => this.myProducts().slice(0, 5));
-  readonly topRevenue = computed(() => this.bestSellers()[0]?.totalSpent ?? 0);
+  readonly maxHistoryValue = computed(() => Math.max(...(this.dashboard()?.history.map((point) => point.value) ?? [0]), 0));
+  readonly maxProductQuantity = computed(() => Math.max(...this.bestSellers().map((row) => row.totalQuantity), 0));
 
   constructor() {
     void this.load();
@@ -241,19 +294,24 @@ export class SellerOverviewPage {
     try {
       this.loading.set(true);
       this.error.set(null);
-      const [products, bestSellers] = await Promise.all([
+      const [products, dashboard] = await Promise.all([
         this.productsService.list(),
-        this.productsService.sellerBestSellingProducts(5).catch((e) => {
+        this.orderService.sellerDashboard(5).catch((e) => {
           this.analyticsError.set(extractApiErrorMessage(e, 'Could not load seller analytics.'));
-          return [];
+          return null;
         }),
       ]);
       this.products.set(products);
-      this.bestSellers.set(bestSellers);
+      this.dashboard.set(dashboard);
+      this.bestSellers.set(dashboard?.topProducts ?? []);
     } catch (e) {
       this.error.set(extractApiErrorMessage(e, 'Could not fetch products.'));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  barWidth(value: number, max: number): number {
+    return max > 0 ? Math.max(6, Math.round((value / max) * 100)) : 0;
   }
 }

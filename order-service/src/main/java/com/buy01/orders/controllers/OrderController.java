@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.buy01.orders.dtos.ClientOrdersList;
 import com.buy01.orders.dtos.CreateOrderDto;
 import com.buy01.orders.dtos.CreateOrderMessage;
+import com.buy01.orders.dtos.DashboardAnalyticsDto;
 import com.buy01.orders.dtos.ReturnMessage;
 import com.buy01.orders.dtos.TopProductDto;
 import com.buy01.orders.exception.ForbiddenAction;
@@ -82,9 +83,10 @@ public class OrderController {
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String userRole,
             @RequestParam(value = "status", required = false) String status,
-            @RequestParam(value = "date", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date date) {
+            @RequestParam(value = "date", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date date,
+            @RequestParam(value = "view", required = false, defaultValue = "client") String view) {
 
-        ClientOrdersList response = orderService.searchOrders(userId, status, date);
+        ClientOrdersList response = orderService.searchOrders(userId, userRole, status, date, view);
         return ResponseEntity.ok(response);
     }
 
@@ -100,6 +102,18 @@ public class OrderController {
         List<TopProductDto> response = orderService.getClientBestProducts(userId, limit);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/client/dashboard")
+    ResponseEntity<DashboardAnalyticsDto> clientDashboard(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Role") String userRole,
+            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+        if (!"CLIENT".equals(userRole)) {
+            throw new ForbiddenAction("Only clients can view client analytics.");
+        }
+
+        return ResponseEntity.ok(orderService.getClientDashboard(userId, limit));
     }
 
     @GetMapping("/client/most-buying-products")
@@ -124,5 +138,17 @@ public class OrderController {
         }
 
         return ResponseEntity.ok(orderService.getSellerBestSellingProducts(userId, limit));
+    }
+
+    @GetMapping("/seller/dashboard")
+    ResponseEntity<DashboardAnalyticsDto> sellerDashboard(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-User-Role") String userRole,
+            @RequestParam(value = "limit", defaultValue = "5") Long limit) {
+        if (!"SELLER".equals(userRole)) {
+            throw new ForbiddenAction("Only sellers can view seller analytics.");
+        }
+
+        return ResponseEntity.ok(orderService.getSellerDashboard(userId, limit));
     }
 }

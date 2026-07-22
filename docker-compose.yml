@@ -205,6 +205,36 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
 
+  orders-service:
+    build:
+      context: ./orders-service
+      dockerfile: Dockerfile
+    container_name: orders-service
+    restart: unless-stopped
+    depends_on:
+      mongodb_orders:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - orders-net
+      - shared-net
+    expose:
+      - "${ORDERS_SERVICE_SERVER_PORT:-8084}"
+    environment:
+      SERVER_PORT: ${PRODUCT_SERVICE_SERVER_PORT:-8084}
+      SPRING_APPLICATION_NAME: ${ORDER_SERVICE_NAME:-ORDER-SERVICE}
+      SPRING_DATA_MONGODB_URI: ${ORDERS_MONGODB_URI:-mongodb://mongodb_orders:27017/ordersdb}
+      SPRING_DATA_MONGODB_DATABASE: ${ORDERS_MONGODB_DATABASE:-ordersdb}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      SPRING_KAFKA_CONSUMER_GROUP_ID: ${ORDERS_KAFKA_CONSUMER_GROUP_ID:-order-service-group}
+      SPRING_KAFKA_PRODUCER_RETRIES: ${ORDERS_KAFKA_PRODUCER_RETRIES:-3}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
+      JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+
   # Media Service
   media-service:
     build:

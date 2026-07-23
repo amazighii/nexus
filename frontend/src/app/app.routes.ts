@@ -25,6 +25,21 @@ export const routes: Routes = [
     loadComponent: () => import('./features/profile/profile-page').then((m) => m.ProfilePage),
   },
   {
+    path: 'dashboard',
+    canMatch: [authGuard],
+    loadComponent: () => import('./features/dashboard/user-dashboard-page').then((m) => m.UserDashboardPage),
+  },
+  {
+    path: 'orders',
+    canMatch: [authGuard],
+    loadChildren: () => import('./features/orders/routes').then((m) => m.ORDER_ROUTES),
+  },
+  {
+    path: 'cart',
+    canMatch: [authGuard],
+    loadComponent: () => import('./features/orders/cart.component').then((m) => m.CartComponent),
+  },
+  {
     path: 'users/:id',
     loadComponent: () => import('./features/profile/public-profile-page').then((m) => m.PublicProfilePage),
   },

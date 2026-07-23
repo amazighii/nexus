@@ -43,8 +43,8 @@ pipeline {
             steps {
                 withSonarQubeEnv('MySonarServer') {
                     sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-  -Dsonar.projectKey=buy01 \
-  -Dsonar.projectName=buy01 '
+  -Dsonar.projectKey=buy02 \
+  -Dsonar.projectName=buy02 '
                 }
             }
         }
@@ -80,10 +80,6 @@ pipeline {
     post {
         always {
             echo 'Processing and archiving all test results...'
-
-            step([$class: 'GitHubCommitStatusSetter',
-                  contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: 'jenkins-ci'],
-                  statusResultSource: [$class: 'DefaultStatusResultSource']])
 
             junit testResults: '**/target/surefire-reports/*.xml, **/frontend/junit-frontend.xml',
                   allowEmptyResults: true

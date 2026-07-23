@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CurrencyPipe } from '@angular/common';
 
 import { ProductsService } from '../../core/services/products.service';
@@ -9,6 +9,9 @@ import type { PublicUserProfileResponse } from '../../core/models/user.models';
 import { SpinnerComponent } from '../../shared/components/spinner/spinner.component';
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { extractApiErrorMessage } from '../../core/utils/http-error';
+import { CartService } from '../../core/services/cart.service';
+import { SessionStore } from '../../core/state/session.store';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   standalone: true,
@@ -48,6 +51,17 @@ import { extractApiErrorMessage } from '../../core/utils/http-error';
             <h1 class="title">{{ product()!.name }}</h1>
             <div class="price">{{ asNumber(product()!.price) | currency : 'USD' : 'symbol' : '1.2-2' }}</div>
             <p class="muted">{{ product()!.description }}</p>
+            @if (ownsProduct()) {
+              <div class="alert alert-warning mt-3 mb-0" role="alert">
+                You cannot buy products from your own seller account.
+              </div>
+            }
+
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <input class="form-control" style="width: 6rem" type="number" min="1" [max]="product()!.quantity" [value]="purchaseQuantity()" (input)="setPurchaseQuantity($event)" aria-label="Quantity" />
+              <button class="btn btn-primary" type="button" [disabled]="ownsProduct()" (click)="buyNow()">Buy now</button>
+              <button class="btn btn-outline-primary" type="button" [disabled]="ownsProduct()" (click)="addToCart()">Add to cart</button>
+            </div>
 
             <div class="meta">
               <div><span class="muted">Quantity</span><div class="meta__val">{{ product()!.quantity }}</div></div>
@@ -218,12 +232,17 @@ export class ProductDetailsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly productsService = inject(ProductsService);
   private readonly users = inject(UserService);
+  private readonly router = inject(Router);
+  private readonly carts = inject(CartService);
+  private readonly session = inject(SessionStore);
+  private readonly toast = inject(ToastService);
 
   readonly product = signal<ProductResponse | null>(null);
   readonly seller = signal<PublicUserProfileResponse | null>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly activeImage = signal<string | null>(null);
+  readonly purchaseQuantity = signal(1);
 
   readonly id = computed(() => this.route.snapshot.paramMap.get('id') ?? '');
   readonly backLink = computed(() => this.route.snapshot.queryParamMap.get('from') === 'seller' ? '/seller/products' : '/products');
@@ -233,6 +252,7 @@ export class ProductDetailsPage {
     return `${seller.firstName} ${seller.lastName}`.trim() || 'Seller';
   });
   readonly sellerInitial = computed(() => this.sellerName().trim().charAt(0).toUpperCase() || 'S');
+  readonly ownsProduct = computed(() => this.session.isSeller() && this.product()?.sellerId === this.session.userId());
 
   constructor() {
     void this.load();
@@ -240,6 +260,43 @@ export class ProductDetailsPage {
 
   asNumber(value: string | number): number {
     return typeof value === 'number' ? value : Number(value);
+  }
+
+  setPurchaseQuantity(event: Event) {
+    const value = Number((event.target as HTMLInputElement).value);
+    const available = Number(this.product()?.quantity ?? 1);
+    this.purchaseQuantity.set(Math.min(Math.max(1, Number.isFinite(value) ? value : 1), available));
+  }
+
+  async buyNow() {
+    const product = this.product();
+    if (!product) return;
+    if (!this.session.isAuthed()) {
+      await this.router.navigateByUrl('/login');
+      return;
+    }
+    if (this.ownsProduct()) {
+      this.toast.show('info', 'Unavailable', 'You cannot buy your own product.');
+      return;
+    }
+    await this.router.navigate(['/orders/checkout'], { queryParams: { productId: product.id, quantity: this.purchaseQuantity() } });
+  }
+
+  addToCart() {
+    const product = this.product();
+    if (!product) return;
+    if (!this.session.isAuthed()) {
+      void this.router.navigateByUrl('/login');
+      return;
+    }
+    if (this.ownsProduct()) {
+      this.toast.show('info', 'Unavailable', 'You cannot add your own product to the cart.');
+      return;
+    }
+    this.carts.addItem({ productId: product.id, quantity: this.purchaseQuantity() }).subscribe({
+      next: () => this.toast.show('success', 'Added to cart'),
+      error: (error: Error) => this.toast.show('error', 'Could not add to cart', error.message),
+    });
   }
 
   async load() {

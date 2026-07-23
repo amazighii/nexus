@@ -12,5 +12,9 @@ import com.buy01.orders.models.OrderStatus;
 @Repository
 public interface OrderRepository extends MongoRepository<Order, String> {
     List<Order> findOrdersByClientIdAndIsRemovedFalse(String userId);
+
+    // List<Order> findOrdersBySellerIdAndIsRemovedFalse(String sellerId);
+
     List<Order> findOrdersByStatusAndDateAndClientId(OrderStatus status, Date date, String clientId);
+
 }

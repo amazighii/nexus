@@ -1,12 +1,16 @@
 package com.buy01.orders.dtos;
 
+import java.util.List;
+
+import com.buy01.orders.models.ProductRef;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
 @AllArgsConstructor
 public class ClientOrderDto {
-    String Id;
+    String id;
 
     String firstname;
 
@@ -20,11 +24,11 @@ public class ClientOrderDto {
 
     String status;
 
-    Long quantity;
-
-    Double price;
+    Double totalPrice;
 
     String paymentMethod;
+
+    List<ProductRef> products;
 
     String date;
 }

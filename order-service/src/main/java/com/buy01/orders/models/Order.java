@@ -1,6 +1,7 @@
 package com.buy01.orders.models;
 
 import java.util.Date;
+import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -45,18 +46,23 @@ public class Order {
     @Field("is_removed")
     Boolean isRemoved;
 
-    @NonNull
-    Long quantity;
+    // @NonNull
+    // Long quantity;
 
     @NonNull
-    Double price;
+    @Field("total_price")
+    Double totalPrice;
 
     @NonNull
     @Field("payment_method")
     OrderPaymentMethod paymentMethod;
 
     @NonNull
-    String productId;
+    List<ProductRef> products;
+
+    // @NonNull
+    // @Field("seller_ids")
+    // List<String> sellerIds;
 
     @NonNull
     Date date;

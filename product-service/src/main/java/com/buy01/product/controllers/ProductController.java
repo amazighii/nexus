@@ -2,6 +2,9 @@ package com.buy01.product.controllers;
 
 import com.buy01.product.dtos.ProductRequest;
 import com.buy01.product.dtos.ProductResponse;
+import com.buy01.product.dtos.CartItemRequest;
+import com.buy01.product.dtos.CartResponse;
+import com.buy01.product.services.CartService;
 import com.buy01.product.services.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/products")
@@ -18,11 +22,36 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    private final CartService cartService;
+
+    @GetMapping("/cart")
+    public ResponseEntity<CartResponse> getCart(Authentication auth) {
+        return ResponseEntity.ok(cartService.getCart(auth.getName()));
+    }
+
+    @PostMapping("/cart")
+    public ResponseEntity<CartResponse> addToCart(@Valid @RequestBody CartItemRequest request, Authentication auth) {
+        return ResponseEntity.ok(cartService.addItem(auth.getName(), request));
+    }
+
+    @DeleteMapping("/cart")
+    public ResponseEntity<Void> removeFromCart(@RequestParam(required = false) String productId, Authentication auth) {
+        cartService.remove(auth.getName(), productId);
+        return ResponseEntity.noContent().build();
+    }
 
     // ── Public ──────────────────────────────────────────────
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> getAllProducts() {
-        return ResponseEntity.ok(productService.getAllProducts());
+    public ResponseEntity<List<ProductResponse>> getAllProducts(
+            @RequestParam(value = "min-price", required = false) BigDecimal minPrice,
+            @RequestParam(value = "max-price", required = false) BigDecimal maxPrice,
+            @RequestParam(value = "sort", required = false, defaultValue = "newest") String sort) {
+        return ResponseEntity.ok(productService.getProducts(minPrice, maxPrice, sort));
+    }
+
+    @GetMapping("/name")
+    public ResponseEntity<List<ProductResponse>> searchProductsByName(@RequestParam("q") String searchTerm) {
+        return ResponseEntity.ok(productService.searchProductsByName(searchTerm));
     }
 
     @GetMapping("/{id}")
@@ -37,7 +66,6 @@ public class ProductController {
             Authentication auth) {
 
         String sellerId = auth.getName(); // userId from JWT
-        System.out.println("\nCreating product for sellerId: " + sellerId + "\n");
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(productService.createProduct(request, sellerId));
     }

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 
 import { SessionStore } from '../../core/state/session.store';
@@ -82,6 +82,7 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
             
           </div>
+
         }
       </div>
     </div>
@@ -139,6 +140,10 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
       h2 {
         margin: 0;
         font-size: 16px;
+      }
+      h3 {
+        margin: 0 0 10px;
+        font-size: 14px;
       }
       .avatar {
         margin-top: 12px;
@@ -221,7 +226,8 @@ const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
         margin-top: 8px;
       }
       @media (max-width: 760px) {
-        .grid {
+        .grid,
+        .urlForm {
           grid-template-columns: 1fr;
         }
       }

@@ -29,7 +29,6 @@ import com.buy01.product.kafka.ProductEvent;
 import com.buy01.product.models.EventType;
 import com.buy01.product.models.Product;
 import com.buy01.product.repositories.ProductRepository;
-import com.buy01.product.services.ProductService;
 
 @ExtendWith(MockitoExtension.class)
 public class ProductServiceTest {

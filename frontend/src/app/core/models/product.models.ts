@@ -17,3 +17,5 @@ export interface ProductRequest {
   quantity: number;
   imageUrls: string[];
 }
+
+export type ProductSortOption = 'price_asc' | 'price_desc' | 'name_asc' | 'name_desc' | 'newest' | 'oldest';

@@ -5,12 +5,9 @@ services:
     container_name: mongodb_users
     restart: unless-stopped
     networks:
-      - shared-net
-      # - users-net
-    # expose:
-    #   - "27017"
-    ports:
-      - "27017:27017"
+      - users-net
+    expose:
+      - "27017"
     volumes:
       - mongodb_users_data:/data/db
     healthcheck:
@@ -26,12 +23,9 @@ services:
     container_name: mongodb_products
     restart: unless-stopped
     networks:
-      # - products-net
-      - shared-net
-    # expose:
-    #   - "27017"
-    ports:
-      - "27018:27017"
+      - products-net
+    expose:
+      - "27017"
     volumes:
       - mongodb_products_data:/data/db
     healthcheck:
@@ -47,10 +41,9 @@ services:
     container_name: mongodb_media
     restart: unless-stopped
     networks:
-      # - media-net
-      - shared-net
-    ports:
-      - "27019:27017"
+      - media-net
+    expose:
+      - "27017"
     volumes:
       - mongodb_media_data:/data/db
     healthcheck:
@@ -65,10 +58,9 @@ services:
     container_name: mongodb_orders
     restart: unless-stopped
     networks:
-      # - orders-net
-      - shared-net
-    ports:
-      - "27020:27017"
+      - orders-net
+    expose:
+      - "27017"
     volumes:
       - mongodb_orders_data:/data/db
     healthcheck:
@@ -85,23 +77,16 @@ services:
     restart: unless-stopped
     networks:
       - shared-net
-    ports:
-      - "29092:29092"
+    expose:
+      - "9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
-      # 1. ADD PLAINTEXT_HOST to listeners so Kafka opens port 29092 inside the container
-      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:29092"
-
-      # This part you already have correct!
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
-
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-
-      # 2. ADD PLAINTEXT_HOST:PLAINTEXT to the map so Kafka knows it's unencrypted text
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
-
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
@@ -124,8 +109,7 @@ services:
     container_name: minio-server
     restart: unless-stopped
     networks:
-      # - media-net
-      - shared-net
+      - media-net
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -136,46 +120,262 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
 
-  # Traefik Edge Router
-  # traefik:
-  #   image: traefik:v3.6
-  #   container_name: traefik
-  #   restart: unless-stopped
-  #   command:
-  #     - "--providers.docker=true"
-  #     - "--providers.docker.exposedbydefault=false"
-  #     - "--entrypoints.web.address=:80"
-  #     - "--entrypoints.websecure.address=:443"
-  #     - "--entrypoints.websecure.http.tls={}"
-  #   ports:
-  #     - "8000:80"
-  #     - "8443:443"
-  #   volumes:
-  #     - /run/user/1038/docker.sock:/var/run/docker.sock:ro
-  #   networks:
-  #     - shared-net
+  # Eureka Server
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: eureka-server
+    restart: unless-stopped
+    networks:
+      - shared-net
+    expose:
+      - "${EUREKA_SERVER_PORT:-8761}"
+    ports:
+      - "${EUREKA_SERVER_PORT:-8761}:${EUREKA_SERVER_PORT:-8761}"
+    environment:
+      SERVER_PORT: ${EUREKA_SERVER_PORT:-8761}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider -q http://localhost:${EUREKA_SERVER_PORT:-8761} || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
 
-# # Networks
+  # User Service
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    restart: unless-stopped
+    depends_on:
+      mongodb_users:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - users-net
+      - shared-net
+    expose:
+      - "${USER_SERVICE_SERVER_PORT:-8081}"
+    environment:
+      SERVER_PORT: ${USER_SERVICE_SERVER_PORT:-8081}
+      SPRING_APPLICATION_NAME: ${USER_SERVICE_NAME:-USER-SERVICE}
+      SPRING_DATA_MONGODB_URI: ${USER_MONGODB_URI:-mongodb://mongodb_users:27017/usersdb}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
+      JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+
+  # Product Service
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: product-service
+    restart: unless-stopped
+    depends_on:
+      mongodb_products:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - products-net
+      - shared-net
+    expose:
+      - "${PRODUCT_SERVICE_SERVER_PORT:-8082}"
+    environment:
+      SERVER_PORT: ${PRODUCT_SERVICE_SERVER_PORT:-8082}
+      SPRING_APPLICATION_NAME: ${PRODUCT_SERVICE_NAME:-PRODUCT-SERVICE}
+      SPRING_DATA_MONGODB_URI: ${PRODUCT_MONGODB_URI:-mongodb://mongodb_products:27017/productsdb}
+      SPRING_DATA_MONGODB_DATABASE: ${PRODUCT_MONGODB_DATABASE:-productsdb}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      SPRING_KAFKA_CONSUMER_GROUP_ID: ${PRODUCT_KAFKA_CONSUMER_GROUP_ID:-product-service-group}
+      SPRING_KAFKA_PRODUCER_RETRIES: ${PRODUCT_KAFKA_PRODUCER_RETRIES:-3}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
+      JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+
+  orders-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: orders-service
+    restart: unless-stopped
+    depends_on:
+      mongodb_orders:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - orders-net
+      - shared-net
+    expose:
+      - "${ORDERS_SERVICE_SERVER_PORT:-8084}"
+    environment:
+      SERVER_PORT: ${ORDER_SERVICE_SERVER_PORT:-8084}
+      SPRING_APPLICATION_NAME: ${ORDER_SERVICE_NAME:-ORDER-SERVICE}
+      SPRING_DATA_MONGODB_URI: ${ORDERS_MONGODB_URI:-mongodb://mongodb_orders:27017/ordersdb}
+      SPRING_DATA_MONGODB_DATABASE: ${ORDERS_MONGODB_DATABASE:-ordersdb}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      SPRING_KAFKA_CONSUMER_GROUP_ID: ${ORDERS_KAFKA_CONSUMER_GROUP_ID:-order-service-group}
+      SPRING_KAFKA_PRODUCER_RETRIES: ${ORDERS_KAFKA_PRODUCER_RETRIES:-3}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
+      JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+
+  # Media Service
+  media-service:
+    build:
+      context: ./media-service
+      dockerfile: Dockerfile
+    container_name: media-service
+    restart: unless-stopped
+    depends_on:
+      mongodb_media:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - media-net
+      - shared-net
+    expose:
+      - "${MEDIA_SERVICE_SERVER_PORT:-8083}"
+    environment:
+      SERVER_PORT: ${MEDIA_SERVICE_SERVER_PORT:-8083}
+      SPRING_APPLICATION_NAME: ${MEDIA_SERVICE_NAME:-MEDIA-SERVICE}
+      SPRING_DATA_MONGODB_URI: ${MEDIA_MONGODB_URI:-mongodb://mongodb_media:27017/mediadb}
+      SPRING_DATA_MONGODB_DATABASE: ${MEDIA_MONGODB_DATABASE:-mediadb}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      SPRING_KAFKA_CONSUMER_GROUP_ID: ${MEDIA_KAFKA_CONSUMER_GROUP_ID:-media-service-group}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
+      MINIO_URL: ${MINIO_URL:-http://minio:9000}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      MINIO_ACCESS_NAME: ${MINIO_ACCESS_NAME:-minio}
+      MINIO_ACCESS_SECRET: ${MINIO_ACCESS_SECRET:-change-me}
+      MINIO_BUCKET: ${MINIO_BUCKET:-buy01-media}
+      MEDIA_ORPHAN_MAX_AGE_MINUTES: ${MEDIA_ORPHAN_MAX_AGE_MINUTES:-1}
+      MEDIA_ORPHAN_CLEANUP_FIXED_RATE_MS: ${MEDIA_ORPHAN_CLEANUP_FIXED_RATE_MS:-60000}
+
+  # Traefik Edge Router
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http.tls={}"
+    ports:
+      - "8000:80"
+      - "8443:443"
+    volumes:
+      - /run/user/1038/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - shared-net
+
+  # Gateway
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    restart: unless-stopped
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      media-service:
+        condition: service_started
+    networks:
+      - shared-net
+      - users-net
+      - products-net
+      - media-net
+      - orders-net
+    environment:
+      SERVER_PORT: 8080
+      SPRING_APPLICATION_NAME: ${GATEWAY_NAME:-GATEWAY}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
+      JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      CORS_ALLOWED_ORIGINS: "https://localhost:8443"
+    labels:
+      - "traefik.enable=true"
+      # 👇 Match by path prefix instead of host domain name
+      - "traefik.http.routers.gateway.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.gateway.entrypoints=websecure"
+      - "traefik.http.routers.gateway.tls=true"
+      - "traefik.http.services.gateway.loadbalancer.server.port=8080"
+      - "traefik.http.services.gateway.loadbalancer.server.scheme=http"
+      - "traefik.http.routers.gateway.priority=2" # Higher priority so it catches /api first
+      - "traefik.docker.network=shared-net"
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "4200:80"
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_started
+    environment:
+      API_BASE_URL: ${FRONTEND_API_BASE_URL:-https://localhost:8443}
+    networks:
+      - shared-net
+    labels:
+      - "traefik.enable=true"
+      # 👇 Catch-all path rule for your Angular static files
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      - "traefik.http.routers.frontend.priority=1" # Lower priority fallback
+# Networks
 networks:
   shared-net:
     name: shared-net
-    # external: true
-  # users-net:
-  #   name: users-net
-  #   driver: bridge
-  #   internal: true
-  # products-net:
-  #   name: products-net
-  #   driver: bridge
-  #   internal: true
-  # media-net:
-  #   name: media-net
-  #   driver: bridge
-  #   internal: false
-  # orders-net:
-  #   name: orders-net
-  #   driver: bridge
-  #   internal: true
+    external: true
+  users-net:
+    name: users-net
+    driver: bridge
+    internal: true
+  products-net:
+    name: products-net
+    driver: bridge
+    internal: true
+  media-net:
+    name: media-net
+    driver: bridge
+    internal: false
+  orders-net:
+    name: orders-net
+    driver: bridge
+    internal: true
 
 # Volumes
 volumes:
@@ -184,189 +384,3 @@ volumes:
   mongodb_media_data:
   minio_data:
   mongodb_orders_data:
-
-#   # Eureka Server
-#   eureka-server:
-#     build:
-#       context: ./eureka-server
-#       dockerfile: Dockerfile
-#     container_name: eureka-server
-#     restart: unless-stopped
-#     networks:
-#       - shared-net
-#     expose:
-#       - "${EUREKA_SERVER_PORT:-8761}"
-#     ports:
-#       - "${EUREKA_SERVER_PORT:-8761}:${EUREKA_SERVER_PORT:-8761}"
-#     environment:
-#       SERVER_PORT: ${EUREKA_SERVER_PORT:-8761}
-#     healthcheck:
-#       test:
-#         [
-#           "CMD-SHELL",
-#           "wget --spider -q http://localhost:${EUREKA_SERVER_PORT:-8761} || exit 1",
-#         ]
-#       interval: 10s
-#       timeout: 5s
-#       retries: 15
-#       start_period: 60s
-
-#   # User Service
-#   user-service:
-#     build:
-#       context: ./user-service
-#       dockerfile: Dockerfile
-#     container_name: user-service
-#     restart: unless-stopped
-#     depends_on:
-#       mongodb_users:
-#         condition: service_healthy
-#       kafka:
-#         condition: service_healthy
-#       eureka-server:
-#         condition: service_healthy
-#     networks:
-#       - users-net
-#       - shared-net
-#     expose:
-#       - "${USER_SERVICE_SERVER_PORT:-8081}"
-#     environment:
-#       SERVER_PORT: ${USER_SERVICE_SERVER_PORT:-8081}
-#       SPRING_APPLICATION_NAME: ${USER_SERVICE_NAME:-USER-SERVICE}
-#       SPRING_DATA_MONGODB_URI: ${USER_MONGODB_URI:-mongodb://mongodb_users:27017/usersdb}
-#       SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
-#       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
-#       JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
-#       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-
-#   # Product Service
-#   product-service:
-#     build:
-#       context: ./product-service
-#       dockerfile: Dockerfile
-#     container_name: product-service
-#     restart: unless-stopped
-#     depends_on:
-#       mongodb_products:
-#         condition: service_healthy
-#       kafka:
-#         condition: service_healthy
-#       eureka-server:
-#         condition: service_healthy
-#     networks:
-#       - products-net
-#       - shared-net
-#     expose:
-#       - "${PRODUCT_SERVICE_SERVER_PORT:-8082}"
-#     environment:
-#       SERVER_PORT: ${PRODUCT_SERVICE_SERVER_PORT:-8082}
-#       SPRING_APPLICATION_NAME: ${PRODUCT_SERVICE_NAME:-PRODUCT-SERVICE}
-#       SPRING_DATA_MONGODB_URI: ${PRODUCT_MONGODB_URI:-mongodb://mongodb_products:27017/productsdb}
-#       SPRING_DATA_MONGODB_DATABASE: ${PRODUCT_MONGODB_DATABASE:-productsdb}
-#       SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
-#       SPRING_KAFKA_CONSUMER_GROUP_ID: ${PRODUCT_KAFKA_CONSUMER_GROUP_ID:-product-service-group}
-#       SPRING_KAFKA_PRODUCER_RETRIES: ${PRODUCT_KAFKA_PRODUCER_RETRIES:-3}
-#       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
-#       JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
-#       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-
-#   # Media Service
-#   media-service:
-#     build:
-#       context: ./media-service
-#       dockerfile: Dockerfile
-#     container_name: media-service
-#     restart: unless-stopped
-#     depends_on:
-#       mongodb_media:
-#         condition: service_healthy
-#       kafka:
-#         condition: service_healthy
-#       eureka-server:
-#         condition: service_healthy
-#       minio:
-#         condition: service_started
-#     networks:
-#       - media-net
-#       - shared-net
-#     expose:
-#       - "${MEDIA_SERVICE_SERVER_PORT:-8083}"
-#     environment:
-#       SERVER_PORT: ${MEDIA_SERVICE_SERVER_PORT:-8083}
-#       SPRING_APPLICATION_NAME: ${MEDIA_SERVICE_NAME:-MEDIA-SERVICE}
-#       SPRING_DATA_MONGODB_URI: ${MEDIA_MONGODB_URI:-mongodb://mongodb_media:27017/mediadb}
-#       SPRING_DATA_MONGODB_DATABASE: ${MEDIA_MONGODB_DATABASE:-mediadb}
-#       SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
-#       SPRING_KAFKA_CONSUMER_GROUP_ID: ${MEDIA_KAFKA_CONSUMER_GROUP_ID:-media-service-group}
-#       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
-#       MINIO_URL: ${MINIO_URL:-http://minio:9000}
-#       MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
-#       MINIO_ACCESS_NAME: ${MINIO_ACCESS_NAME:-minio}
-#       MINIO_ACCESS_SECRET: ${MINIO_ACCESS_SECRET:-change-me}
-#       MINIO_BUCKET: ${MINIO_BUCKET:-buy01-media}
-#       MEDIA_ORPHAN_MAX_AGE_MINUTES: ${MEDIA_ORPHAN_MAX_AGE_MINUTES:-1}
-#       MEDIA_ORPHAN_CLEANUP_FIXED_RATE_MS: ${MEDIA_ORPHAN_CLEANUP_FIXED_RATE_MS:-60000}
-
-#   # Gateway
-#   gateway:
-#     build:
-#       context: ./gateway
-#       dockerfile: Dockerfile
-#     container_name: gateway
-#     restart: unless-stopped
-#     depends_on:
-#       eureka-server:
-#         condition: service_healthy
-#       user-service:
-#         condition: service_started
-#       product-service:
-#         condition: service_started
-#       media-service:
-#         condition: service_started
-#     networks:
-#       - shared-net
-#       - users-net
-#       - products-net
-#       - media-net
-#     environment:
-#       SERVER_PORT: 8080
-#       SPRING_APPLICATION_NAME: ${GATEWAY_NAME:-GATEWAY}
-#       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_DEFAULT_ZONE:-http://eureka-server:8761/eureka}
-#       JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-key-here-change-in-prod}
-#       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-#       CORS_ALLOWED_ORIGINS: "https://localhost:8443"
-#     labels:
-#       - "traefik.enable=true"
-#       # 👇 Match by path prefix instead of host domain name
-#       - "traefik.http.routers.gateway.rule=PathPrefix(`/api`)"
-#       - "traefik.http.routers.gateway.entrypoints=websecure"
-#       - "traefik.http.routers.gateway.tls=true"
-#       - "traefik.http.services.gateway.loadbalancer.server.port=8080"
-#       - "traefik.http.services.gateway.loadbalancer.server.scheme=http"
-#       - "traefik.http.routers.gateway.priority=2" # Higher priority so it catches /api first
-#       - "traefik.docker.network=shared-net"
-
-#   # Frontend
-#   frontend:
-#     build:
-#       context: ./frontend
-#       dockerfile: Dockerfile
-#     container_name: frontend
-#     ports:
-#       - "4200:80"
-#     restart: unless-stopped
-#     depends_on:
-#       gateway:
-#         condition: service_started
-#     environment:
-#       API_BASE_URL: ${FRONTEND_API_BASE_URL:-https://localhost:8443}
-#     networks:
-#       - shared-net
-#     labels:
-#       - "traefik.enable=true"
-#       # 👇 Catch-all path rule for your Angular static files
-#       - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
-#       - "traefik.http.routers.frontend.entrypoints=websecure"
-#       - "traefik.http.routers.frontend.tls=true"
-#       - "traefik.http.services.frontend.loadbalancer.server.port=80"
-#       - "traefik.http.routers.frontend.priority=1" # Lower priority fallback

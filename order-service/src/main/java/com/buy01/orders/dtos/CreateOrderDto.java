@@ -1,5 +1,8 @@
 package com.buy01.orders.dtos;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import lombok.Data;
 
 @Data
@@ -13,9 +16,15 @@ public class CreateOrderDto {
 
     String address;
 
-    Long quantity;
-
     String paymentMethod;
 
-    String productId;
+    /** Product IDs and quantities submitted by direct purchase or cart checkout. */
+    List<ProductOrder> productIds = new ArrayList<>();
+
+    /** Preferred name for new clients; productIds remains supported for compatibility. */
+    List<ProductOrder> products = new ArrayList<>();
+
+    public List<ProductOrder> requestedProducts() {
+        return products != null && !products.isEmpty() ? products : productIds;
+    }
 }

@@ -1,13 +1,16 @@
 import { CurrencyPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, UntypedFormBuilder } from '@angular/forms';
 import { BehaviorSubject, catchError, combineLatest, distinctUntilChanged, finalize, map, of, startWith, switchMap } from 'rxjs';
 
-import { ORDER_STATUSES, type Order, type OrderStatus } from '../../core/models/order.models';
+import { CreateOrderRequest, ORDER_STATUSES, type Order, type OrderStatus } from '../../core/models/order.models';
 import { OrderService } from '../../core/services/order.service';
 import { SessionStore } from '../../core/state/session.store';
 import { ToastService } from '../../core/services/toast.service';
+import { ProductResponse } from '../../core/models/product.models';
+import { CartService } from '../../core/services/cart.service';
+import { Router } from '@angular/router';
 
 type OrderView = 'client' | 'seller';
 type OrderState = { loading: boolean; orders: Order[]; error: string | null };
@@ -166,4 +169,35 @@ export class OrderListComponent {
   private reload() {
     this.reload$.next();
   }
+
+  public reOrder(order: Order) {
+    if (order.address == undefined || order.firstname == undefined || order.lastname == undefined
+      || order.phoneNumber == undefined) {
+      this.toast.show('error', 'Could not place order', 'Order fields cannot be undefined');
+      return;
+    }
+
+    const createOrder: CreateOrderRequest = {
+      firstname: order.firstname,
+      lastname: order.lastname,
+      phoneNumber: order.phoneNumber,
+      address: order.address,
+      paymentMethod: "PAY_ON_DELIVERY",
+      productIds: order.products.map(product => ({
+        productId: product.productId,
+        quantity: product.quantity
+      }))
+    };
+
+    this.orders.createOrder(createOrder).subscribe({
+      next: (response) => {
+        this.toast.show('success', 'Order placed', response.message);
+      },
+      error: (error: Error) => {
+        this.toast.show('error', 'Could not place order', error.message);
+      }
+    })
+
+  }
+
 }

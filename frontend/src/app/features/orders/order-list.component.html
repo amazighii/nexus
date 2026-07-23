@@ -102,7 +102,7 @@
             </button>
             } @else {
             <div class="btn-group btn-group-sm">
-              <button class="btn btn-outline-success" type="button" [disabled]="!canCancel(order)"
+              <button class="btn btn-outline-success" type="button" [disabled]="canCancel(order)"
                 (click)="reOrder(order)">
                 Redo order
               </button>
@@ -113,7 +113,7 @@
                 Cancel
               </button>
               <button class="btn btn-outline-danger" type="button"
-                [disabled]=" !canCancel(order) ||actionInProgress() === order.id"
+                [disabled]=" canCancel(order) ||actionInProgress() === order.id"
                 (click)="pendingRemoval.set(order); $event.stopPropagation()">
                 Remove
               </button>

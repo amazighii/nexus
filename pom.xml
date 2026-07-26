@@ -20,8 +20,45 @@
 
     <properties>
         <java.version>17</java.version>
-        <spring-boot.version>3.2.0</spring-boot.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <spring-boot.version>3.5.13</spring-boot.version>
+        <spring-cloud.version>2025.0.0</spring-cloud.version>
     </properties>
+
+    <distributionManagement>
+        <repository>
+            <id>buy02</id>
+            <name>nexus release repository</name>
+            <url>http://localhost:8086/repository/buy02/</url>
+        </repository>
+        <snapshotRepository>
+            <id>buy02-snapshot</id>
+            <name>nexus snapshot repository</name>
+            <url>http://localhost:8086/repository/buy02-snapshot/</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <plugins>

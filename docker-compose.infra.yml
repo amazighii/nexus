@@ -1,21 +1,18 @@
 services:
-  jenkins:
-    build: .
-    container_name: jenkins
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: nexus
     restart: unless-stopped
-    user: root
     networks:
       - shared-net
     ports:
-      - "${JENKINS_PORT:-8085}:8080"
-      - "${JENKINS_AGENT_PORT:-50000}:50000"
+      - 8086:8081
     volumes:
-      - jenkins_home:/var/jenkins_home
-      - /run/user/1038/docker.sock:/var/run/docker.sock
-
-volumes:
-  jenkins_home:
+      - nexus-data:/nexus-data
 
 networks:
   shared-net:
     name: shared-net
+
+volumes:
+  nexus-data:

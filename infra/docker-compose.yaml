@@ -12,10 +12,26 @@ services:
       - sonarqube_extensions:/opt/sonarqube/extensions
       - sonarqube_logs:/opt/sonarqube/logs
 
+  jenkins:
+    build: .
+    container_name: jenkins
+    restart: unless-stopped
+    user: root
+    networks:
+      - shared-net
+    ports:
+      - "${JENKINS_PORT:-8085}:8080"
+      - "${JENKINS_AGENT_PORT:-50000}:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /run/user/1038/docker.sock:/var/run/docker.sock
+
 networks:
   shared-net:
     name: shared-net
+
 volumes:
   sonarqube_data:
   sonarqube_extensions:
   sonarqube_logs:
+  jenkins_home:

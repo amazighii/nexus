@@ -2,12 +2,14 @@ FROM maven:3.9-eclipse-temurin-17 AS build
 
 WORKDIR /workspace
 COPY . .
+WORKDIR /workspace/gateway
+
 RUN chmod +x mvnw && ./mvnw -q -DskipTests package
 
-FROM maven:3.9-eclipse-temurin-17
+FROM eclipse-temurin:17-jre
 
 WORKDIR /app
-COPY --from=build /workspace/target/*.jar app.jar
+COPY --from=build /workspace/gateway/target/*.jar app.jar
 ENV MAVEN_OPTS="-XX:+UseSerialGC -Xmx512m"
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

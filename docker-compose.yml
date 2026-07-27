@@ -123,8 +123,8 @@ services:
   # Eureka Server
   eureka-server:
     build:
-      context: ./eureka-server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: eureka-server/Dockerfile
     container_name: eureka-server
     restart: unless-stopped
     networks:
@@ -149,8 +149,8 @@ services:
   # User Service
   user-service:
     build:
-      context: ./user-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: user-service/Dockerfile
     container_name: user-service
     restart: unless-stopped
     depends_on:
@@ -177,8 +177,8 @@ services:
   # Product Service
   product-service:
     build:
-      context: ./product-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: product-service/Dockerfile
     container_name: product-service
     restart: unless-stopped
     depends_on:
@@ -207,8 +207,8 @@ services:
 
   orders-service:
     build:
-      context: ./order-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: order-service/Dockerfile
     container_name: orders-service
     restart: unless-stopped
     depends_on:
@@ -238,8 +238,8 @@ services:
   # Media Service
   media-service:
     build:
-      context: ./media-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: media-service/Dockerfile
     container_name: media-service
     restart: unless-stopped
     depends_on:
@@ -294,8 +294,8 @@ services:
   # Gateway
   gateway:
     build:
-      context: ./gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: gateway/Dockerfile
     container_name: gateway
     restart: unless-stopped
     depends_on:

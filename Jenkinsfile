@@ -7,6 +7,10 @@ pipeline {
         cron('H H(0-4) * * 1-5') // AutoMatically triggers a clean monitoring scan every weeknight between midnight and 4 AM
     }
 
+    environment {
+        VERSION = "${env.TAG_NAME ?: env.GIT_COMMIT[0..7]}"
+    }
+
     tools {
         maven 'M3'
     }
@@ -33,16 +37,10 @@ pipeline {
             }
         }
 
-        stage('Build & Package') {
-            steps {
-                sh './mvnw package -DskipTests'
-            }
-        }
-
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('MySonarServer') {
-                    sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+                    sh './mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
   -Dsonar.projectKey=buy02 \
   -Dsonar.projectName=buy02 '
                 }
@@ -62,17 +60,33 @@ pipeline {
             }
         }
 
+        stage('Package & Deploy Artifacts') {
+            steps {
+                sh './mvnw versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false'
+                sh './mvnw deploy -DskipTests'
+            }
+        }
+
+        stage('Build Images & Push') {
+            steps {
+                // Securely authenticate Docker against your local registry
+                withCredentials([usernamePassword(credentialsId: 'NEXUS_CREDENTIALS',
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo "$DOCKER_PASS" | docker login localhost:8086 -u "$DOCKER_USER" --password-stdin'
+                    sh 'docker compose build'
+                    sh 'docker compose push'
+                                                  }
+            }
+        }
+
         stage('Deploy Stack') {
             steps {
                 echo 'Deploying the Microservices Platform...'
                 script {
-                    def rawBranchName = env.CHANGE_BRANCH ? env.CHANGE_BRANCH : env.BRANCH_NAME
-
-                    def safeBranchName = rawBranchName.toLowerCase().replaceAll(/[^a-z0-9-_]/, '_')
-
                     sh 'docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net'
                     sh 'docker compose -p buy01-current down --remove-orphans'
-                    sh 'docker compose -p buy01-current up --build -d'
+                    sh 'docker compose -p buy01-current up -d'
                 }
             }
         }

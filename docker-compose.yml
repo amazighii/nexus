@@ -122,7 +122,7 @@ services:
 
   # Eureka Server
   eureka-server:
-    image: localhost:8086/docker-hosted/eureka-server:1.0.0
+    image: localhost:8086/docker-hosted/eureka-server:${VERSION}
     build:
       context: .
       dockerfile: eureka-server/Dockerfile
@@ -149,7 +149,7 @@ services:
 
   # User Service
   user-service:
-    image: localhost:8086/docker-hosted/user-service:1.0.0
+    image: localhost:8086/docker-hosted/user-service:${VERSION}
     build:
       context: .
       dockerfile: user-service/Dockerfile
@@ -178,7 +178,7 @@ services:
 
   # Product Service
   product-service:
-    image: localhost:8086/docker-hosted/product-service:1.0.0
+    image: localhost:8086/docker-hosted/product-service:${VERSION}
     build:
       context: .
       dockerfile: product-service/Dockerfile
@@ -209,7 +209,7 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
 
   orders-service:
-    image: localhost:8086/docker-hosted/orders-service:1.0.0
+    image: localhost:8086/docker-hosted/orders-service:${VERSION}
     build:
       context: .
       dockerfile: order-service/Dockerfile
@@ -241,7 +241,7 @@ services:
 
   # Media Service
   media-service:
-    image: localhost:8086/docker-hosted/media-service:1.0.0
+    image: localhost:8086/docker-hosted/media-service:${VERSION}
     build:
       context: .
       dockerfile: media-service/Dockerfile
@@ -298,7 +298,7 @@ services:
 
   # Gateway
   gateway:
-    image: localhost:8086/docker-hosted/gateway-service:1.0.0
+    image: localhost:8086/docker-hosted/gateway-service:${VERSION}
     build:
       context: .
       dockerfile: gateway/Dockerfile
@@ -339,7 +339,7 @@ services:
 
   # Frontend
   frontend:
-    image: localhost:8086/docker-hosted/frontend:1.0.0
+    image: localhost:8086/docker-hosted/frontend:${VERSION}
     build:
       context: ./frontend
       dockerfile: Dockerfile

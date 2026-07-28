@@ -13,7 +13,7 @@ services:
       - sonarqube_logs:/opt/sonarqube/logs
 
   jenkins:
-    build: .
+    build: ./..
     container_name: jenkins
     restart: unless-stopped
     user: root

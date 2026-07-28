@@ -30,12 +30,12 @@
         <repository>
             <id>buy02</id>
             <name>nexus release repository</name>
-            <url>http://localhost:8086/repository/buy02/</url>
+            <url>http://nexus:8086/repository/buy02/</url>
         </repository>
         <snapshotRepository>
             <id>buy02-snapshot</id>
             <name>nexus snapshot repository</name>
-            <url>http://localhost:8086/repository/buy02-snapshot/</url>
+            <url>http://nexus:8086/repository/buy02-snapshot/</url>
         </snapshotRepository>
     </distributionManagement>
 

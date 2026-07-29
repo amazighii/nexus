@@ -75,7 +75,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'NEXUS_CREDENTIALS',
                                                   usernameVariable: 'DOCKER_USER',
                                                   passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo "$DOCKER_PASS" | docker login nexus:8081 -u "$DOCKER_USER" --password-stdin'
+                    sh 'echo "$DOCKER_PASS" | docker login localhost:8086 -u "$DOCKER_USER" --password-stdin'
                     sh 'docker compose build'
                     sh 'docker compose push'
                                                   }

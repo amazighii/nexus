@@ -11,7 +11,6 @@
 	</parent>
 	<groupId>com.buy01</groupId>
 	<artifactId>gateway</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<name />
 	<description />

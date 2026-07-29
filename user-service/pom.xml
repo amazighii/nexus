@@ -14,7 +14,6 @@
 
     <groupId>com.buy01</groupId>
     <artifactId>user</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <name>user</name>
     <description>User service</description>
     <packaging>jar</packaging>

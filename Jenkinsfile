@@ -63,7 +63,7 @@ pipeline {
 
         stage('Package & Deploy Artifacts') {
             steps {
-                configFileProvider([configFile(fileId: '754548c3-5658-428e-8784-4b6757341553', variable: 'MAVEN_SETTINGS')]) {
+                configFileProvider([configFile(fileId: '3edde727-58d2-4c8b-8c77-818369c293b5', variable: 'MAVEN_SETTINGS')]) {
                     sh 'echo $VERSION'
                     sh 'echo env.TAG_NAME'
                     sh './mvnw versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false'

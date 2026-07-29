@@ -1,527 +1,485 @@
-# buy02
+# CI/CD Pipeline Setup
 
-`buy02` is a microservices e-commerce project. It contains an Angular frontend, a Spring Cloud Gateway, Eureka service discovery, Spring Boot services for **users, products, orders, and media**, MongoDB databases, Kafka event flow, MinIO media storage, and a Jenkins CI/CD pipeline.
-
-The application currently supports:
-
-- User registration and login with JWT authentication
-- User profile and public seller profile pages
-- Product listing and product details
-- Seller-only product management
-- Shopping cart and checkout
-- Order creation and order history
-- Seller order management
-- Order status tracking
-- User and seller analytics dashboards
-- Image upload, update, and deletion for products and avatars
-- Product/media cleanup events through Kafka
+This project uses a Jenkins Declarative Pipeline to automate testing, code quality analysis, artifact deployment, Docker image publishing, and application deployment.
 
 ---
 
-# Project Structure
+# Pipeline Overview
 
-- `frontend` - Angular 21 application served by Nginx in Docker
-- `gateway` - Spring Cloud Gateway, JWT validation, CORS configuration, and service routing
-- `eureka-server` - Eureka service discovery
-- `user-service` - Authentication and user management
-- `product-service` - Product CRUD and seller ownership validation
-- `order-service` - Shopping cart, checkout, orders, seller orders, analytics
-- `media-service` - Image APIs, MinIO storage, Kafka consumer
-- `docker-compose.yml` - Complete application stack
-- `docker-compose.infra.yml` - Jenkins infrastructure
-- `Jenkinsfile` - CI/CD pipeline
-- `scripts/run-https.sh` - HTTPS startup helper
-- `run-all.sh` - Starts all backend services locally
+The pipeline performs the following steps:
 
----
-
-# Architecture
-
-The frontend communicates only with the API Gateway. Backend services register themselves with Eureka, allowing the gateway to route requests using logical service names.
-
-```text
-Browser
-   │
-   ▼
-Frontend (Angular)
-   │
-   ▼
-Spring Cloud Gateway
-   │
-   ├────────► USER-SERVICE
-   ├────────► PRODUCT-SERVICE
-   ├────────► ORDER-SERVICE
-   └────────► MEDIA-SERVICE
-                │
-                ▼
-     MongoDB • Kafka • MinIO
-```
-
----
-
-# Infrastructure
-
-Docker Compose runs **four** MongoDB databases:
-
-- `mongodb_users` → user-service
-- `mongodb_products` → product-service
-- `mongodb_orders` → order-service
-- `mongodb_media` → media-service
-
-Other infrastructure:
-
-- Kafka
-- MinIO
-- Traefik
-- Eureka Server
+1. Backend Unit Tests (Maven)
+2. Frontend Unit Tests (Node.js)
+3. SonarQube Static Code Analysis
+4. SonarQube Quality Gate Validation
+5. Package & Deploy Maven Artifacts to Nexus
+6. Build & Push Docker Images (only on Git tags)
+7. Deploy the Docker Compose Stack
+8. Send Email Notifications
+9. Automatic Rollback on Failure
 
 ---
 
 # Prerequisites
 
-Docker setup:
+The Jenkins server must have the following installed.
 
+## Software
+
+- Jenkins
+- Java 17+
+- Maven
 - Docker
 - Docker Compose
-- OpenSSL
-
-Optional:
-
-- mkcert (trusted HTTPS certificates)
-
-For local development:
-
-- Java 17
-- Node.js 20+
-- npm
+- Git
 
 ---
 
-# Environment
+## Jenkins Plugins
 
-Create a local environment file:
+Install the following plugins:
 
-```bash
-cp .env.example .env
-```
-
-Review these variables:
-
-- JWT_SECRET
-- MINIO_ROOT_USER
-- MINIO_ROOT_PASSWORD
-- MINIO_ACCESS_NAME
-- MINIO_ACCESS_SECRET
-- FRONTEND_API_BASE_URL
-- CORS_ALLOWED_ORIGINS
-
-The HTTPS helper automatically updates the frontend URL and allowed origins.
+- Pipeline
+- Docker Pipeline
+- Config File Provider
+- SonarQube Scanner
+- NodeJs
+- Basic Branch Build Strategies Plugin
 
 ---
 
-# Running the Application
+# Jenkins Global Configuration
 
-## Recommended
+## 1. Maven
 
-```bash
-./scripts/run-https.sh
+Go to:
+
+```
+Manage Jenkins
+→ Tools
+→ Maven Installations
 ```
 
-Detached mode:
+Create a Maven installation named:
 
-```bash
-./scripts/run-https.sh -d
 ```
-
-Regenerate certificates:
-
-```bash
-./scripts/run-https.sh --force-certs
-```
-
-The script:
-
-- creates HTTPS certificates
-- creates `.env` if missing
-- configures Traefik
-- creates the Docker network
-- builds and starts every service
-
-After startup:
-
-| Service | URL |
-|---------|-----|
-| Application | https://localhost:8443 |
-| Gateway | https://localhost:8443/api |
-| Eureka | http://localhost:8761 |
-| MinIO API | http://localhost:9000 |
-| MinIO Console | http://localhost:9001 |
-| Frontend (direct) | http://localhost:4200 |
-
----
-
-# Docker Compose
-
-Create the shared network:
-
-```bash
-docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net
-```
-
-Run:
-
-```bash
-docker compose up --build
-```
-
-Stop:
-
-```bash
-docker compose down
+M3
 ```
 
 ---
 
-# Local Development
+## 2. SonarQube
 
-Run every backend service:
-
-```bash
-./run-all.sh
-```
-
-Logs are written into:
+Go to:
 
 ```
-logs/
+Manage Jenkins
+→ System
+→ SonarQube Servers
 ```
 
-Helper scripts:
+Add a server named:
 
-- run-services.sh
-- rerun-services.sh
-- stop-services.sh
-- stop-all.sh
-- scripts/db/db-start.sh
-- scripts/db/db-stop.sh
-- scripts/kafka/kafka_init.sh
-- scripts/kafka/kafka_stop.sh
+```
+MySonarServer
+```
+
+Configure:
+
+- Server URL e.g  http://sonarqube:9000
+- Authentication Token
 
 ---
 
-# Frontend Development
+## 3. Maven Settings.xml
 
-```bash
-cd frontend
-npm install
-npm start
+Go to:
+
+```
+Manage Jenkins
+→ Managed Files
 ```
 
-Frontend tests:
+Create a `Maven settings.xml`.
 
-```bash
-cd frontend
-npm test
+Its ID looks something like this:
+
+```
+754548c3-5658-428e-8784-4b6757341553
 ```
 
-Main routes:
+The file should contain the credentials for your Nexus repository.
 
-- /products
-- /products/:id
-- /login
-- /register
-- /profile
-- /users/:id
-- /seller
-- /cart
-- /checkout
-- /orders
+Example:
 
-# Backend Development
+```xml
+<settings>
 
-Run all backend tests:
+  <servers>
 
-```bash
-./mvnw clean test
+    <server>
+      <id>nexus-releases</id>
+      <username>YOUR_USERNAME</username>
+      <password>YOUR_PASSWORD</password>
+    </server>
+
+    <server>
+      <id>nexus-snapshots</id>
+      <username>YOUR_USERNAME</username>
+      <password>YOUR_PASSWORD</password>
+    </server>
+
+  </servers>
+
+   <mirrors>
+		 <mirror>
+			  <id>nexus</id>
+			  <mirrorOf>*</mirrorOf>
+			  <url>http://hostname:port/repository/repository-name/</url>
+		 </mirror>
+  </mirrors>
+
+</settings>
 ```
-
-Build every backend module:
-
-```bash
-./mvnw package -DskipTests
-```
-
-Spring Boot modules:
-
-- user-service
-- product-service
-- order-service
-- media-service
-- gateway
-- eureka-server
 
 ---
 
-# API Routes
+## 4. Jenkins Credentials
 
-Gateway routes:
+Create the following credentials.
 
-- `/api/auth/**` → user-service
-- `/api/users/**` → user-service
-- `/api/products/**` → product-service
-- `/api/orders/**` → order-service
-- `/api/media/**` → media-service
+### Nexus Credentials
 
----
-
-# Main REST Endpoints
-
-## Authentication
-
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-
-## Users
-
-- `GET /api/users/me`
-- `PUT /api/users/me`
-- `GET /api/users/public/{id}`
-
-## Products
-
-- `GET /api/products`
-- `GET /api/products/{id}`
-- `POST /api/products`
-- `PUT /api/products/{id}`
-- `DELETE /api/products/{id}`
-
-## Orders
-
-- `POST /api/orders`
-- `GET /api/orders`
-- `GET /api/orders/{id}`
-- `GET /api/orders/seller`
-- `PUT /api/orders/{id}/cancel`
-- `PUT /api/orders/{id}/remove`
-- `PUT /api/orders/{id}/redo`
-
-## Media
-
-- `POST /api/media/images`
-- `POST /api/media/images/profile`
-- `PUT /api/media/images/{id}`
-- `DELETE /api/media/images/{id}`
-
----
-
-# OpenAPI Documentation
-
-Swagger/OpenAPI documentation is available through the Gateway:
-
-- `/v3/api-docs/user-service`
-- `/v3/api-docs/product-service`
-- `/v3/api-docs/order-service`
-- `/v3/api-docs/media-service`
-
----
-
-# Default Ports
-
-| Service | Port |
-|---------|------|
-| Traefik HTTPS | **8443** |
-| Traefik HTTP | **8000** |
-| Angular Frontend | **4200** |
-| Gateway | **8080** |
-| User Service | **8081** |
-| Product Service | **8082** |
-| Media Service | **8083** |
-| **Order Service** | **8084** |
-| Eureka | **8761** |
-| MinIO API | **9000** |
-| MinIO Console | **9001** |
-| Kafka | **9092** |
-| Jenkins | **8085** |
-| Jenkins Agent | **50000** |
-| SonarQube | **9002** |
-
----
-
-# Jenkins CI/CD
-
-The Jenkins image is built from the root Dockerfile.
-
-Start Jenkins:
-
-```bash
-docker compose -f docker-compose.infra.yml up --build -d
-```
-
-Jenkins UI:
+Credential ID:
 
 ```
-http://localhost:8085
+NEXUS_CREDENTIALS
 ```
+
+Type:
+
+```
+Username with Password
+```
+
+Used for:
+
+```
+docker login localhost:8086
+```
+
+---
+
+### Git Credentials
+
+Credential ID:
+
+```
+github pull credentials
+```
+
+Type:
+
+```
+Username with Password
+```
+
+Used for:
+
+- Automatic rollback
+- Automatic push of revert commits
+
+---
+
+# Nexus Repository
+
+The pipeline expects a Nexus Repository running locally.
+
+Example Docker Registry:
+
+```
+localhost:8086
+```
+
+Maven repositories should also be configured in Nexus for:
+
+- Releases
+- Snapshots
+
+Nexus needs Docker Bearer Token Realm:
+- go to settings -> security -> Realms -> add Docker Bearer Token Realm
+- order matters
 
 ---
 
 # SonarQube
 
-Start SonarQube:
+A SonarQube server must be running.
+
+The pipeline uses:
+
+```
+Project Key:
+buy02
+
+Project Name:
+buy02
+```
+
+The Quality Gate must pass before deployment continues.
+
+---
+
+# Docker Compose
+
+A `docker-compose.yml` file must exist at the root of the project.
+
+The compose file should define every microservice and build context.
+
+---
+
+# Branch Builds
+
+When a normal branch is built, the pipeline executes:
+
+- Backend Tests
+- Frontend Tests
+- Sonar Analysis
+- Quality Gate
+- Maven Deploy
+- Docker Compose Deployment
+
+Docker images are **not** pushed.
+
+---
+
+# Tagged Releases
+
+When building a Git tag (for example `v1.0.0`), the pipeline additionally:
+
+- Builds Docker images
+- Pushes images to the Docker Registry
+
+Version numbers are derived from the Git tag.
+
+Example:
+
+```
+Tag:
+v1.2.0
+
+Artifact Version:
+1.2.0
+```
+
+If no tag exists, the version becomes:
+
+```
+<commit-hash>-SNAPSHOT
+```
+
+Example:
+
+```
+2f4bc2a1-SNAPSHOT
+```
+
+---
+
+# Running the Pipeline
+
+## 1. Create a Multibranch Pipeline
+
+In Jenkins:
+
+```
+New Item
+→ Multibranch Pipeline
+```
+
+Give the job a name and click **OK**.
+
+---
+
+## 2. Configure the Branch Source
+
+Under **Branch Sources**, click **Add source** and select **Git** (or your Git provider, such as Gitea or GitHub).
+
+Provide:
+
+- Repository URL
+- Credentials (if the repository is private)
+
+Jenkins will automatically discover all branches containing a `Jenkinsfile`.
+
+---
+
+## 3. Configure Build Triggers
+
+Enable **Scan Multibranch Pipeline Triggers** if you want Jenkins to periodically scan the repository for new branches and changes.
+
+The pipeline itself also defines:
+
+- **SCM Polling** using `pollSCM('')`
+- A scheduled **cron** trigger for automated monitoring scans on weekday nights.
+
+---
+
+## 4. Save
+
+Click **Save**.
+
+Jenkins will perform an initial scan of the repository and create jobs for each discovered branch.
+
+---
+
+## 5. Run the Pipeline
+
+To build a specific branch:
+
+1. Open the Multibranch Pipeline job.
+2. Select the desired branch (e.g., `main`, `develop`, or a feature branch).
+3. Click **Build Now**.
+
+Jenkins will execute the `Jenkinsfile` from that branch.
+
+---
+
+## 6. Building Tagged Releases
+
+When a Git tag (e.g., `v1.0.0`) is pushed, Jenkins detects the tag (if tag discovery is enabled in the Multibranch Pipeline configuration) and executes the pipeline.
+
+During tagged builds, the **Build Images & Push** stage is executed, publishing Docker images to the configured Nexus Docker registry.
+
+# Automatic Triggers
+
+The pipeline is configured with:
+
+## SCM Polling
+
+```groovy
+pollSCM('')
+```
+
+Jenkins periodically checks the repository for changes and triggers a build when new commits are detected.
+
+---
+
+## Scheduled Scan
+
+```groovy
+cron('H H(0-4) * * 1-5')
+```
+
+This schedules a build every weekday between **12:00 AM and 4:59 AM** (the exact time is automatically distributed by Jenkins using `H`) for maintenance and monitoring.
+
+---
+
+# Deployment
+
+During deployment, the pipeline:
+
+Creates the Docker network if it does not exist:
 
 ```bash
-docker compose -f sonar-infra/docker-compose.yaml up -d
+docker network create shared-net
 ```
 
-SonarQube Dashboard:
+Stops the currently running stack:
 
-```
-http://localhost:9002
-```
-
-The exposed port can be changed through:
-
-```
-SONARQUBE_PORT
+```bash
+docker compose -p buy01-current down --remove-orphans
 ```
 
----
+Starts the updated stack:
 
-# CI/CD Pipeline
-
-The Jenkins pipeline automatically performs:
-
-1. Checkout source code
-2. Backend unit tests
-3. Frontend tests
-4. Maven package
-5. SonarQube analysis
-6. SonarQube Quality Gate verification
-7. Docker deployment
-8. Archive JUnit reports
-9. Email notification
-10. Automatic rollback (`git revert`) when deployment fails
-
----
-
-# Technologies Used
-
-## Backend
-
-- Java 17
-- Spring Boot
-- Spring Security
-- Spring Cloud Gateway
-- Spring Cloud Eureka
-- Spring Data MongoDB
-- Kafka
-
-## Frontend
-
-- Angular 21
-- Bootstrap
-- TypeScript
-
-## Infrastructure
-
-- Docker
-- Docker Compose
-- Traefik
-- MinIO
-- MongoDB
-- Kafka
-
-## DevOps
-
-- Jenkins
-- SonarQube
-- Maven
-
----
-
-# Useful Files
-
-- `docker-compose.yml`
-- `docker-compose.infra.yml`
-- `Jenkinsfile`
-- `run-all.sh`
-- `scripts/run-https.sh`
-- `.env.example`
-- `frontend/API_MAPPING.md`
-
----
-
-# Troubleshooting
-
-### Services do not register in Eureka
-
-Open:
-
-```
-http://localhost:8761
+```bash
+docker compose -p buy01-current up -d
 ```
 
-Verify that every microservice is registered.
+---
+
+# Test Reports
+
+JUnit reports are automatically archived from:
+
+```
+**/target/surefire-reports/*.xml
+```
+
+and
+
+```
+frontend/junit-frontend.xml
+```
+
+These reports can be viewed directly in Jenkins after each build.
 
 ---
 
-### Gateway cannot reach a service
+# Email Notifications
 
-Check that:
+On success, Jenkins sends a notification email containing the build URL.
 
-- Eureka is running.
-- The target service is running.
-- The service name matches the Gateway configuration.
+On failure, Jenkins sends an alert email with a link to the console logs.
 
 ---
 
-### Frontend cannot call the API
+# Automatic Rollback
 
-Verify:
+If the pipeline fails:
 
-- `https://localhost:8443/api`
-- `CORS_ALLOWED_ORIGINS`
-- `FRONTEND_API_BASE_URL`
+1. Jenkins creates a revert commit for the latest change:
 
----
+```bash
+git revert HEAD --no-edit
+```
 
-### HTTPS Certificate Warning
+2. The revert is automatically pushed to the `main` branch using the configured Git credentials.
 
-Install **mkcert** or manually trust the generated local certificate.
-
----
-
-### Image Upload Issues
-
-Verify:
-
-- MinIO is running.
-- Bucket exists.
-- Credentials inside `.env` are correct.
+This mechanism helps restore the repository to the last known good state after a failed pipeline execution.
 
 ---
 
-### Kafka Problems
+# Pipeline Flow
 
-Check that:
-
-- Kafka container is running.
-- Kafka topics were created.
-- Consumers are connected.
-
----
-
-### MongoDB Connection Problems
-
-Verify that the corresponding MongoDB container is running:
-
-- mongodb_users
-- mongodb_products
-- mongodb_orders
-- mongodb_media
-
----
-
-# License
-
-This project was developed as part of the **Buy02** educational project and is intended for learning purposes.
+```
+Git Commit
+     │
+     ▼
+Backend Unit Tests
+     │
+     ▼
+Frontend Unit Tests
+     │
+     ▼
+SonarQube Analysis
+     │
+     ▼
+Quality Gate
+     │
+     ▼
+Package & Deploy Artifacts
+     │
+     ▼
+Is Build a Git Tag?
+     │
+ ┌───┴───────────┐
+ │               │
+No             Yes
+ │               │
+ ▼               ▼
+Deploy      Build Docker Images
+Stack           │
+                ▼
+          Push Images to Nexus
+                │
+                ▼
+           Deploy Stack
+                │
+                ▼
+        Email Notification
+                │
+                ▼
+      Rollback on Failure
+```

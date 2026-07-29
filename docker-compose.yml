@@ -1,7 +1,7 @@
 services:
   # MongoDB - Users
   mongodb_users:
-    image: mongo:7
+    image: localhost:8086/repository/docker-group/mongo:7
     container_name: mongodb_users
     restart: unless-stopped
     networks:
@@ -19,7 +19,7 @@ services:
 
   # MongoDB - Products
   mongodb_products:
-    image: mongo:7
+    image: localhost:8086/repository/docker-group/mongo:7
     container_name: mongodb_products
     restart: unless-stopped
     networks:
@@ -37,7 +37,7 @@ services:
 
   # MongoDB - Media
   mongodb_media:
-    image: mongo:7
+    image: localhost:8086/repository/docker-group/mongo:7
     container_name: mongodb_media
     restart: unless-stopped
     networks:
@@ -54,7 +54,7 @@ services:
       start_period: 20s
 
   mongodb_orders:
-    image: mongo:7
+    image: localhost:8086/repository/docker-group/mongo:7
     container_name: mongodb_orders
     restart: unless-stopped
     networks:
@@ -72,7 +72,7 @@ services:
 
   # Kafka
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: localhost:8086/repository/docker-group/confluentinc/cp-kafka:latest
     container_name: kafka
     restart: unless-stopped
     networks:
@@ -105,7 +105,7 @@ services:
 
   # MinIO
   minio:
-    image: minio/minio
+    image: localhost:8086/repository/docker-group/minio/minio
     container_name: minio-server
     restart: unless-stopped
     networks:
@@ -209,7 +209,7 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
 
   orders-service:
-    image: localhost:8086/docker-hosted/orders-service:${VERSION}
+    image: localhost:8086/docker-group/orders-service:${VERSION}
     build:
       context: .
       dockerfile: order-service/Dockerfile
@@ -279,7 +279,7 @@ services:
 
   # Traefik Edge Router
   traefik:
-    image: traefik:v3.6
+    image: localhost:8086/repository/docker-group/traefik:v3.6
     container_name: traefik
     restart: unless-stopped
     command:

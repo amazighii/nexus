@@ -209,7 +209,7 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
 
   orders-service:
-    image: localhost:8086/docker-group/orders-service:${VERSION}
+    image: localhost:8086/docker-hosted/orders-service:${VERSION}
     build:
       context: .
       dockerfile: order-service/Dockerfile

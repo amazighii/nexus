@@ -279,7 +279,7 @@ services:
 
   # Traefik Edge Router
   traefik:
-    image: localhost:8086/repository/docker-proxy/library/traefik:v3.6
+    image: localhost:8086/repository/docker-proxy/library/traefik:3.6
     container_name: traefik
     restart: unless-stopped
     command:

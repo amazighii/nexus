@@ -8,7 +8,8 @@ pipeline {
     }
 
     environment {
-        VERSION = "${env.TAG_NAME ?: env.GIT_COMMIT[0..7]}"
+        RAW_TAG = "${env.TAG_NAME ?: ''}"
+        VERSION = "${RAW_TAG ? RAW_TAG.replaceAll('^v', '') : env.GIT_COMMIT[0..7] + '-SNAPSHOT'}"
     }
 
     tools {

@@ -73,9 +73,7 @@ pipeline {
         }
 
         stage('Build Images & Push') {
-            when {
-                buildingTag()
-            }
+            
             steps {
                 // Securely authenticate Docker against your local registry
                 withCredentials([usernamePassword(credentialsId: 'NEXUS_CREDENTIALS',

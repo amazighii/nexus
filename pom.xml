@@ -35,7 +35,7 @@
         <snapshotRepository>
             <id>buy02-snapshots</id>
             <name>nexus snapshot repository</name>
-            <url>http://nexus:8081/repository/buy02-snapshot/</url>
+            <url>http://nexus:8081/repository/buy02-snapshots/</url>
         </snapshotRepository>
     </distributionManagement>
 

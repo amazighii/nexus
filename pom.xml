@@ -33,7 +33,7 @@
             <url>http://nexus:8081/repository/buy02-releases/</url>
         </repository>
         <snapshotRepository>
-            <id>buy02-snapshot</id>
+            <id>buy02-snapshots</id>
             <name>nexus snapshot repository</name>
             <url>http://nexus:8081/repository/buy02-snapshot/</url>
         </snapshotRepository>

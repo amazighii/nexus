@@ -65,6 +65,7 @@ Create a Maven installation named:
 ```
 M3
 ```
+![alt text](image-1.png)
 
 ---
 
@@ -209,6 +210,8 @@ Maven repositories should also be configured in Nexus for:
 Nexus needs Docker Bearer Token Realm:
 - go to settings -> security -> Realms -> add Docker Bearer Token Realm
 - order matters
+
+![alt text](image.png)
 
 ---
 
